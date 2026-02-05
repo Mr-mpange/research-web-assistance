@@ -67,10 +67,10 @@
            } else if (error.message.includes("Email not confirmed")) {
              setError("Please verify your email address before signing in.");
            } else {
-             setError(error.message);
+           setError(error.message);
            }
          } else {
-           navigate("/");
+           navigate("/dashboard");
          }
        } else {
          const validatedData = signupSchema.parse({

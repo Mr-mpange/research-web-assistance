@@ -5,7 +5,18 @@
  import { BrowserRouter, Routes, Route } from "react-router-dom";
  import { AuthProvider } from "@/contexts/AuthContext";
  import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+ import { PublicLayout } from "@/components/public/PublicLayout";
  import { DashboardLayout } from "./components/layout/DashboardLayout";
+ 
+ // Public pages
+ import Home from "./pages/Home";
+ import Features from "./pages/Features";
+ import HowItWorks from "./pages/HowItWorks";
+ import About from "./pages/About";
+ import Contact from "./pages/Contact";
+ import Auth from "./pages/Auth";
+ 
+ // Dashboard pages
  import DashboardOverview from "./pages/DashboardOverview";
  import VoiceRecords from "./pages/VoiceRecords";
  import Transcriptions from "./pages/Transcriptions";
@@ -13,7 +24,6 @@
  import Participants from "./pages/Participants";
  import Reports from "./pages/Reports";
  import Settings from "./pages/Settings";
- import Auth from "./pages/Auth";
  import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,7 +36,17 @@ const queryClient = new QueryClient();
        <BrowserRouter>
          <AuthProvider>
            <Routes>
+             {/* Public Routes */}
+             <Route element={<PublicLayout />}>
+               <Route path="/" element={<Home />} />
+               <Route path="/features" element={<Features />} />
+               <Route path="/how-it-works" element={<HowItWorks />} />
+               <Route path="/about" element={<About />} />
+               <Route path="/contact" element={<Contact />} />
+             </Route>
              <Route path="/auth" element={<Auth />} />
+ 
+             {/* Protected Dashboard Routes */}
              <Route
                element={
                  <ProtectedRoute>
@@ -34,7 +54,7 @@ const queryClient = new QueryClient();
                  </ProtectedRoute>
                }
              >
-               <Route path="/" element={<DashboardOverview />} />
+               <Route path="/dashboard" element={<DashboardOverview />} />
                <Route path="/voice-records" element={<VoiceRecords />} />
                <Route path="/transcriptions" element={<Transcriptions />} />
                <Route path="/summaries" element={<Transcriptions />} />
