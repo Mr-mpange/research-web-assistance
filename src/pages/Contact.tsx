@@ -1,32 +1,42 @@
- import { useState } from "react";
- import { Button } from "@/components/ui/button";
- import { Input } from "@/components/ui/input";
- import { Textarea } from "@/components/ui/textarea";
- import { Label } from "@/components/ui/label";
- import { FadeInSection } from "@/components/public/FadeInSection";
- import { Mail, MapPin, Phone, Send, Loader2 } from "lucide-react";
- import { toast } from "sonner";
- 
- export default function Contact() {
-   const [loading, setLoading] = useState(false);
-   const [formData, setFormData] = useState({
-     name: "",
-     email: "",
-     organization: "",
-     message: "",
-   });
- 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
-     setLoading(true);
-     
-     // Simulate form submission
-     await new Promise((resolve) => setTimeout(resolve, 1500));
-     
-     toast.success("Thank you for your message. We'll be in touch soon.");
-     setFormData({ name: "", email: "", organization: "", message: "" });
-     setLoading(false);
-   };
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { FadeInSection } from "@/components/public/FadeInSection";
+import { Mail, MapPin, Phone, Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+export default function Contact() {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    organization: "",
+    message: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("send-contact-email", {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      toast.success("Thank you for your message. We'll be in touch soon.");
+      setFormData({ name: "", email: "", organization: "", message: "" });
+    } catch (error: any) {
+      console.error("Error sending contact form:", error);
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
  
    return (
      <div>
