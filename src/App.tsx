@@ -8,13 +8,16 @@
  import { PublicLayout } from "@/components/public/PublicLayout";
  import { DashboardLayout } from "./components/layout/DashboardLayout";
  
- // Public pages
- import Home from "./pages/Home";
- import Features from "./pages/Features";
- import HowItWorks from "./pages/HowItWorks";
- import About from "./pages/About";
- import Contact from "./pages/Contact";
- import Auth from "./pages/Auth";
+// Public pages
+import Home from "./pages/Home";
+import Features from "./pages/Features";
+import HowItWorks from "./pages/HowItWorks";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import DataEthics from "./pages/DataEthics";
+import Auth from "./pages/Auth";
  
  // Dashboard pages
  import DashboardOverview from "./pages/DashboardOverview";
@@ -41,9 +44,12 @@ const queryClient = new QueryClient();
                <Route path="/" element={<Home />} />
                <Route path="/features" element={<Features />} />
                <Route path="/how-it-works" element={<HowItWorks />} />
-               <Route path="/about" element={<About />} />
-               <Route path="/contact" element={<Contact />} />
-             </Route>
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/data-ethics" element={<DataEthics />} />
+              </Route>
              <Route path="/auth" element={<Auth />} />
  
              {/* Protected Dashboard Routes */}
