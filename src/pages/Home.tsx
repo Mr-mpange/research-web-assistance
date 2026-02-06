@@ -1,17 +1,18 @@
- import { Link } from "react-router-dom";
- import { Button } from "@/components/ui/button";
- import { FadeInSection } from "@/components/public/FadeInSection";
- import { 
-   Mic, 
-   Phone, 
-   FileText, 
-   BarChart3, 
-   Users, 
-   Shield,
-   CheckCircle,
-   ArrowRight
- } from "lucide-react";
- 
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { FadeInSection } from "@/components/public/FadeInSection";
+import { HeroVideo } from "@/components/public/HeroVideo";
+import { Testimonials } from "@/components/public/Testimonials";
+import { 
+  Mic, 
+  Phone, 
+  FileText, 
+  BarChart3, 
+  Users, 
+  Shield,
+  CheckCircle,
+  ArrowRight
+} from "lucide-react";
  const features = [
    {
      icon: Mic,
@@ -75,14 +76,9 @@
  export default function Home() {
    return (
      <div>
-       {/* Hero Section */}
-       <section className="relative overflow-hidden bg-primary text-primary-foreground">
-         <div 
-           className="absolute inset-0 bg-cover bg-center opacity-20"
-           style={{
-             backgroundImage: "url('https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1920&q=80')"
-           }}
-         />
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-primary text-primary-foreground">
+          <HeroVideo />
          <div className="relative container py-20 md:py-28">
            <div className="max-w-3xl">
              <FadeInSection>
@@ -234,13 +230,16 @@
                  </Link>
                </Button>
              </div>
-           </FadeInSection>
-         </div>
-       </section>
- 
-       {/* CTA Section */}
-       <section className="py-16 bg-primary text-primary-foreground">
-         <div className="container text-center">
+            </FadeInSection>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <Testimonials />
+
+        {/* CTA Section */}
+        <section className="py-16 bg-primary text-primary-foreground">
+          <div className="container text-center">
            <FadeInSection>
              <h2 className="text-2xl md:text-3xl font-bold mb-4">
                Ready to Start Your Research?
