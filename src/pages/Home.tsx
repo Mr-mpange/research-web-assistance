@@ -4,6 +4,7 @@ import { FadeInSection } from "@/components/public/FadeInSection";
 import { HeroVideo } from "@/components/public/HeroVideo";
 import { Testimonials } from "@/components/public/Testimonials";
 import { FAQ } from "@/components/public/FAQ";
+import { Partners } from "@/components/public/Partners";
 import { 
   Mic, 
   Phone, 
@@ -240,6 +241,9 @@ import {
 
         {/* FAQ Section */}
         <FAQ />
+
+        {/* Partners Section */}
+        <Partners />
 
         {/* CTA Section */}
         <section className="py-16 bg-primary text-primary-foreground">

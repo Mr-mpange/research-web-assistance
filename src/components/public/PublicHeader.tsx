@@ -4,12 +4,14 @@
  import { Button } from "@/components/ui/button";
  import { cn } from "@/lib/utils";
  
- const navLinks = [
-   { href: "/", label: "Home" },
-   { href: "/features", label: "Features" },
-   { href: "/how-it-works", label: "How It Works" },
-   { href: "/about", label: "About" },
- ];
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/features", label: "Features" },
+  { href: "/how-it-works", label: "How It Works" },
+  { href: "/case-studies", label: "Case Studies" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/about", label: "About" },
+];
  
  export function PublicHeader() {
    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
