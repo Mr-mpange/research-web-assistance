@@ -17,6 +17,7 @@ import Contact from "./pages/Contact";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import DataEthics from "./pages/DataEthics";
+import CaseStudies from "./pages/CaseStudies";
 import Auth from "./pages/Auth";
  
  // Dashboard pages
@@ -49,6 +50,7 @@ const queryClient = new QueryClient();
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/data-ethics" element={<DataEthics />} />
+                <Route path="/case-studies" element={<CaseStudies />} />
               </Route>
              <Route path="/auth" element={<Auth />} />
  
