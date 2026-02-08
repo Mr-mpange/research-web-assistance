@@ -1,12 +1,30 @@
 import { FadeInSection } from "./FadeInSection";
 
 const partners = [
-  { name: "World Bank", logoPlaceholder: "WB" },
-  { name: "UNICEF", logoPlaceholder: "UN" },
-  { name: "Gates Foundation", logoPlaceholder: "GF" },
-  { name: "USAID", logoPlaceholder: "US" },
-  { name: "African Development Bank", logoPlaceholder: "ADB" },
-  { name: "DFID", logoPlaceholder: "DF" },
+  { 
+    name: "World Bank", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/8/87/The_World_Bank_logo.svg",
+  },
+  { 
+    name: "UNICEF", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/e/ed/Logo_of_UNICEF.svg",
+  },
+  { 
+    name: "Bill & Melinda Gates Foundation", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/e/e3/Bill_%26_Melinda_Gates_Foundation_logo.svg",
+  },
+  { 
+    name: "USAID", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/7/79/USAID-Identity.svg",
+  },
+  { 
+    name: "African Development Bank", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/9/9f/African_Development_Bank_Logo.svg",
+  },
+  { 
+    name: "Global Fund", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/1/1f/The_Global_Fund_to_Fight_AIDS%2C_Tuberculosis_and_Malaria_logo.svg",
+  },
 ];
 
 export function Partners() {
@@ -21,10 +39,14 @@ export function Partners() {
             {partners.map((partner) => (
               <div
                 key={partner.name}
-                className="flex items-center justify-center h-12 w-24 md:w-32 rounded bg-muted/50 text-muted-foreground font-semibold text-sm hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-12 w-28 md:w-36 grayscale hover:grayscale-0 opacity-60 hover:opacity-100 transition-all"
                 title={partner.name}
               >
-                {partner.logoPlaceholder}
+                <img
+                  src={partner.logo}
+                  alt={partner.name}
+                  className="h-8 md:h-10 w-auto object-contain"
+                />
               </div>
             ))}
           </div>

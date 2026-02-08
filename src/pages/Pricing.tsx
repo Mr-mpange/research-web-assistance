@@ -7,6 +7,7 @@ import { Check, ArrowRight } from "lucide-react";
 const plans = [
   {
     name: "Academic",
+    slug: "academic",
     description: "For university researchers and small research teams",
     price: "Contact Us",
     priceNote: "Custom pricing for academic institutions",
@@ -25,6 +26,7 @@ const plans = [
   },
   {
     name: "Research Institution",
+    slug: "institution",
     description: "For NGOs, think tanks, and research organizations",
     price: "Contact Us",
     priceNote: "Volume-based pricing",
@@ -44,6 +46,7 @@ const plans = [
   },
   {
     name: "Enterprise",
+    slug: "enterprise",
     description: "For government agencies and large-scale development programs",
     price: "Custom",
     priceNote: "Tailored to your requirements",
@@ -163,7 +166,7 @@ export default function Pricing() {
                       variant={plan.highlighted ? "default" : "outline"}
                       asChild
                     >
-                      <Link to="/contact">
+                      <Link to={`/contact?plan=${plan.slug}`}>
                         {plan.cta}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>
