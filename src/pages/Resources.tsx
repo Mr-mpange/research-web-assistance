@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { FadeInSection } from "@/components/public/FadeInSection";
 import { 
   FileText, 
@@ -10,8 +12,13 @@ import {
   ArrowRight, 
   Calendar,
   Download,
-  ExternalLink
+  ExternalLink,
+  Mail,
+  Loader2,
+  CheckCircle
 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const articles = [
   {
@@ -69,16 +76,19 @@ const whitepapers = [
     title: "The Future of Field Research in Africa",
     description: "Exploring how technology is transforming data collection in hard-to-reach communities.",
     pages: "24 pages",
+    filename: "future-of-field-research-africa.pdf",
   },
   {
     title: "Data Ethics in Mobile Research",
     description: "A framework for ethical data collection, storage, and usage in voice and USSD research.",
     pages: "18 pages",
+    filename: "data-ethics-mobile-research.pdf",
   },
   {
     title: "Comparing Voice vs. USSD for Survey Research",
     description: "A comparative analysis of response rates, data quality, and participant preferences.",
     pages: "15 pages",
+    filename: "voice-vs-ussd-comparison.pdf",
   },
 ];
 
@@ -111,6 +121,44 @@ const getCategoryColor = (type: string) => {
 };
 
 export default function Resources() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("newsletter_subscribers")
+        .insert({ email: email.trim() });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.info("You're already subscribed to our newsletter!");
+        } else {
+          throw error;
+        }
+      } else {
+        setSubscribed(true);
+        toast.success("Successfully subscribed to newsletter!");
+        setEmail("");
+      }
+    } catch (error: any) {
+      console.error("Newsletter subscription error:", error);
+      toast.error("Failed to subscribe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = (filename: string, title: string) => {
+    // Since we don't have actual PDFs uploaded yet, show a message
+    toast.info(`"${title}" will be available for download soon. Contact us for early access.`);
+  };
+
   return (
     <div>
       {/* Hero Section */}
@@ -206,7 +254,11 @@ export default function Resources() {
                       <span className="text-sm text-muted-foreground">
                         {paper.pages}
                       </span>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDownload(paper.filename, paper.title)}
+                      >
                         <Download className="h-4 w-4 mr-2" />
                         Download PDF
                       </Button>
@@ -223,7 +275,10 @@ export default function Resources() {
       <section className="py-16">
         <div className="container">
           <FadeInSection>
-            <div className="max-w-2xl mx-auto text-center">
+            <div className="max-w-xl mx-auto text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
+                <Mail className="h-6 w-6 text-primary" />
+              </div>
               <h2 className="text-2xl font-bold text-foreground mb-4">
                 Stay Updated
               </h2>
@@ -231,14 +286,41 @@ export default function Resources() {
                 Get the latest research guides, platform updates, and field research 
                 insights delivered to your inbox.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button asChild>
-                  <Link to="/contact">
-                    Subscribe to Newsletter
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
+              
+              {subscribed ? (
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">You're subscribed!</span>
+                </div>
+              ) : (
+                <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={loading}>
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        Subscribe
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
+              
+              <p className="text-xs text-muted-foreground mt-4">
+                We respect your privacy. Unsubscribe at any time.
+              </p>
+              
+              <div className="mt-6">
+                <Button variant="outline" size="sm" asChild>
                   <a 
                     href="https://twitter.com" 
                     target="_blank" 
