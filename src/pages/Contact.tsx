@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +9,14 @@ import { Mail, MapPin, Phone, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+const planMessages: Record<string, string> = {
+  academic: "I'm interested in the Academic plan for my university research project.",
+  institution: "I'm interested in the Research Institution plan for our organization.",
+  enterprise: "I'm interested in the Enterprise plan for our large-scale program.",
+};
+
 export default function Contact() {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +24,16 @@ export default function Contact() {
     organization: "",
     message: "",
   });
+
+  useEffect(() => {
+    const plan = searchParams.get("plan");
+    if (plan && planMessages[plan]) {
+      setFormData((prev) => ({
+        ...prev,
+        message: planMessages[plan],
+      }));
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
