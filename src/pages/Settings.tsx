@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Bell, Shield, Database, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import {
   Select,
   SelectContent,
@@ -22,15 +25,30 @@ import {
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user, profile: userProfile } = useAuth();
+  const { isAdmin } = useAdminRole();
   const [activeTab, setActiveTab] = useState("profile");
+  const [saving, setSaving] = useState(false);
   
-  // Profile state
+  // Profile state - initialize from auth context
   const [profile, setProfile] = useState({
-    firstName: "Admin",
-    lastName: "User",
-    email: "admin@research.com",
-    organization: "Research Institute",
+    firstName: "",
+    lastName: "",
+    email: "",
+    organization: "",
   });
+
+  // Load user data from auth context
+  useEffect(() => {
+    if (user && userProfile) {
+      setProfile({
+        firstName: userProfile.first_name || "",
+        lastName: userProfile.last_name || "",
+        email: user.email || "",
+        organization: userProfile.organization || "",
+      });
+    }
+  }, [user, userProfile]);
 
   // Notification state
   const [notifications, setNotifications] = useState({
@@ -46,11 +64,45 @@ export default function Settings() {
     environment: "production",
   });
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Success",
-      description: "Profile updated successfully",
-    });
+  const handleSaveProfile = async () => {
+    if (!user || !userProfile) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          first_name: profile.firstName,
+          last_name: profile.lastName,
+          organization: profile.organization,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Profile update error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveNotifications = () => {
@@ -93,7 +145,7 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : 'grid-cols-3'}`}>
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
@@ -106,14 +158,18 @@ export default function Settings() {
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Data</span>
-          </TabsTrigger>
-          <TabsTrigger value="api" className="flex items-center gap-2">
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">API</span>
-          </TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger value="data" className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                <span className="hidden sm:inline">Data</span>
+              </TabsTrigger>
+              <TabsTrigger value="api" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">API</span>
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Profile Tab */}
@@ -146,8 +202,12 @@ export default function Settings() {
                   id="email"
                   type="email"
                   value={profile.email}
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  disabled
+                  className="bg-muted"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Email cannot be changed here. Contact support to update your email.
+                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="organization">Organization</Label>
@@ -159,7 +219,9 @@ export default function Settings() {
               </div>
             </div>
             <div className="mt-4 flex justify-end">
-              <Button onClick={handleSaveProfile}>Save Changes</Button>
+              <Button onClick={handleSaveProfile} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -250,8 +312,9 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        {/* Data Management Tab */}
-        <TabsContent value="data" className="space-y-4">
+        {/* Data Management Tab - Admin Only */}
+        {isAdmin && (
+          <TabsContent value="data" className="space-y-4">
           <div className="rounded-md border bg-card p-6">
             <h2 className="text-sm font-semibold">Data Management</h2>
             <p className="mb-4 text-xs text-muted-foreground">
@@ -279,9 +342,11 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+        )}
 
-        {/* API Settings Tab */}
-        <TabsContent value="api" className="space-y-4">
+        {/* API Settings Tab - Admin Only */}
+        {isAdmin && (
+          <TabsContent value="api" className="space-y-4">
           <div className="rounded-md border bg-card p-6">
             <h2 className="text-sm font-semibold">API Configuration</h2>
             <p className="mb-4 text-xs text-muted-foreground">
@@ -329,6 +394,7 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );
