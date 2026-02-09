@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: "Dashboard Overview", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Voice Records", href: "/voice-records", icon: Mic },
   { name: "Transcriptions", href: "/transcriptions", icon: FileText },
   { name: "AI Summaries", href: "/summaries", icon: Brain },

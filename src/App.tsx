@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminRoute } from "@/components/auth/AdminRoute";
+import { RoleBasedRedirect } from "@/components/auth/RoleBasedRedirect";
 import { PublicLayout } from "@/components/public/PublicLayout";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
