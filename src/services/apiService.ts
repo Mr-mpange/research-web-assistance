@@ -45,6 +45,12 @@ async function apiRequest<T>(
       };
     }
 
+    // Return the data directly if it already has success property
+    // This prevents double-wrapping the backend response
+    if (data.success !== undefined) {
+      return data;
+    }
+
     return {
       success: true,
       data,

@@ -34,6 +34,7 @@ import Participants from "./pages/Participants";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
+import AISummaryTest from "./pages/AISummaryTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const queryClient = new QueryClient();
               <Route path="/participants" element={<Participants />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/ai-test" element={<AISummaryTest />} />
             </Route>
             
             {/* Admin Routes */}

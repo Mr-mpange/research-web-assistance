@@ -65,7 +65,8 @@ export default function ResearchQuestions() {
   }, []);
 
   const loadQuestions = async () => {
-    const result = await fetchQuestions();
+    // Add timestamp to bypass cache
+    const result = await fetchQuestions({ _t: Date.now() } as any);
     if (result.success) {
       const questionsData = (result as any).data?.questions || (result as any).data || [];
       if (Array.isArray(questionsData)) {
@@ -161,14 +162,15 @@ export default function ResearchQuestions() {
   };
 
   const handleToggleStatus = async (question: ResearchQuestion) => {
+    const newStatus = !question.is_active;
     const result = await updateQuestion(question.id, {
-      is_active: !question.is_active,
+      is_active: newStatus,
     });
     
     if (result.success) {
       toast({
         title: "Success",
-        description: `Question ${question.is_active ? 'deactivated' : 'activated'}`,
+        description: `Question ${newStatus ? 'activated' : 'deactivated'}`,
       });
       await loadQuestions();
     } else {
@@ -442,14 +444,18 @@ export default function ResearchQuestions() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className={`h-8 w-8 ${
+                        question.is_active 
+                          ? "hover:bg-success/10" 
+                          : "hover:bg-destructive/10"
+                      }`}
                       onClick={() => handleToggleStatus(question)}
                       title={question.is_active ? "Deactivate" : "Activate"}
                     >
                       {question.is_active ? (
                         <ToggleRight className="h-4 w-4 text-success" />
                       ) : (
-                        <ToggleLeft className="h-4 w-4" />
+                        <ToggleLeft className="h-4 w-4 text-destructive" />
                       )}
                     </Button>
                     <Button
