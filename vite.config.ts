@@ -11,6 +11,15 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // Proxy API requests to backend (CORS workaround)
+    // Uncomment this if you can't fix CORS on the backend
+    // proxy: {
+    //   '/api': {
+    //     target: 'https://research-system-864580156744.us-central1.run.app',
+    //     changeOrigin: true,
+    //     secure: false,
+    //   }
+    // }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

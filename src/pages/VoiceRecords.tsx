@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Search, Filter, Play, FileText, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, Play, FileText, Download, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useBackendApi } from "@/hooks/useBackendApi";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -20,98 +22,75 @@ import {
 
 interface VoiceRecord {
   id: string;
-  date: string;
-  phoneNumber: string;
-  question: string;
-  duration: string;
-  status: "completed" | "processing" | "pending";
+  created_at: string;
+  phone_number: string;
+  question_title?: string;
+  response_type: string;
+  audio_file_path?: string;
+  transcribed_text?: string;
+  summary_text?: string;
 }
 
-const voiceRecords: VoiceRecord[] = [
-  {
-    id: "VR-001",
-    date: "2024-01-15",
-    phoneNumber: "+254 712 345 678",
-    question: "Healthcare Access",
-    duration: "3:42",
-    status: "completed",
-  },
-  {
-    id: "VR-002",
-    date: "2024-01-15",
-    phoneNumber: "+254 733 456 789",
-    question: "Water & Sanitation",
-    duration: "2:18",
-    status: "completed",
-  },
-  {
-    id: "VR-003",
-    date: "2024-01-14",
-    phoneNumber: "+254 722 567 890",
-    question: "Healthcare Access",
-    duration: "4:55",
-    status: "processing",
-  },
-  {
-    id: "VR-004",
-    date: "2024-01-14",
-    phoneNumber: "+254 745 678 901",
-    question: "Education",
-    duration: "3:11",
-    status: "completed",
-  },
-  {
-    id: "VR-005",
-    date: "2024-01-14",
-    phoneNumber: "+254 701 789 012",
-    question: "Income & Livelihood",
-    duration: "5:23",
-    status: "completed",
-  },
-  {
-    id: "VR-006",
-    date: "2024-01-13",
-    phoneNumber: "+254 718 890 123",
-    question: "Healthcare Access",
-    duration: "2:45",
-    status: "pending",
-  },
-  {
-    id: "VR-007",
-    date: "2024-01-13",
-    phoneNumber: "+254 729 901 234",
-    question: "Water & Sanitation",
-    duration: "4:02",
-    status: "completed",
-  },
-  {
-    id: "VR-008",
-    date: "2024-01-12",
-    phoneNumber: "+254 736 012 345",
-    question: "Education",
-    duration: "3:28",
-    status: "completed",
-  },
-];
-
-const statusStyles = {
-  completed: "bg-success/10 text-success",
-  processing: "bg-warning/10 text-warning",
-  pending: "bg-muted text-muted-foreground",
-};
-
 export default function VoiceRecords() {
+  const [voiceRecords, setVoiceRecords] = useState<VoiceRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [questionFilter, setQuestionFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { loading, error, fetchResponses } = useBackendApi();
+
+  useEffect(() => {
+    loadVoiceRecords();
+  }, [currentPage]);
+
+  const loadVoiceRecords = async () => {
+    const result = await fetchResponses({
+      page: currentPage,
+      limit: 50,
+      type: 'voice',
+      includeAI: true,
+    });
+
+    if (result.success && result.data) {
+      const responses = result.data.responses || result.data;
+      if (Array.isArray(responses)) {
+        setVoiceRecords(responses);
+      }
+      
+      if (result.data.pagination) {
+        setTotalPages(result.data.pagination.pages || 1);
+      }
+    }
+  };
 
   const filteredRecords = voiceRecords.filter((record) => {
     const matchesSearch =
-      record.phoneNumber.includes(searchQuery) ||
+      record.phone_number?.includes(searchQuery) ||
       record.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesQuestion =
-      questionFilter === "all" || record.question === questionFilter;
+      questionFilter === "all" || record.question_title === questionFilter;
     return matchesSearch && matchesQuestion;
   });
+
+  const getStatus = (record: VoiceRecord) => {
+    if (record.summary_text) return "completed";
+    if (record.transcribed_text) return "processing";
+    return "pending";
+  };
+
+  const statusStyles = {
+    completed: "bg-success/10 text-success",
+    processing: "bg-warning/10 text-warning",
+    pending: "bg-muted text-muted-foreground",
+  };
+
+  if (loading && voiceRecords.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -119,9 +98,17 @@ export default function VoiceRecords() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Voice Records</h1>
         <p className="text-sm text-muted-foreground">
-          Manage and review all recorded voice interviews
+          Manage and review all recorded voice interviews — Real-time data
         </p>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -169,33 +156,42 @@ export default function VoiceRecords() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRecords.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell className="font-medium">{record.date}</TableCell>
-                <TableCell>{record.phoneNumber}</TableCell>
-                <TableCell>{record.question}</TableCell>
-                <TableCell>{record.duration}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
-                      statusStyles[record.status]
-                    }`}
-                  >
-                    {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredRecords.map((record) => {
+              const status = getStatus(record);
+              const date = new Date(record.created_at).toLocaleDateString();
+              
+              return (
+                <TableRow key={record.id}>
+                  <TableCell className="font-medium">{date}</TableCell>
+                  <TableCell>{record.phone_number || 'N/A'}</TableCell>
+                  <TableCell>{record.question_title || 'N/A'}</TableCell>
+                  <TableCell>N/A</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+                        statusStyles[status]
+                      }`}
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {record.audio_file_path && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {record.transcribed_text && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -203,14 +199,24 @@ export default function VoiceRecords() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredRecords.length} of {voiceRecords.length} records
+          Showing {filteredRecords.length} of {voiceRecords.length} records (Page {currentPage} of {totalPages})
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="mr-1 h-4 w-4" />
             Previous
           </Button>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          >
             Next
             <ChevronRight className="ml-1 h-4 w-4" />
           </Button>

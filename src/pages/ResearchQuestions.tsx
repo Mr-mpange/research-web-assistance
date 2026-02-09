@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useBackendApi } from "@/hooks/useBackendApi";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -34,69 +37,42 @@ interface ResearchQuestion {
   title: string;
   category: string;
   description: string;
-  status: "active" | "inactive";
-  responses: number;
-  createdAt: string;
+  question_text?: string;
+  is_active: boolean;
+  response_count?: number;
+  created_at: string;
 }
 
-const initialQuestions: ResearchQuestion[] = [
-  {
-    id: "RQ-001",
-    title: "Healthcare Access",
-    category: "Health",
-    description: "Questions about access to healthcare facilities, services, and medication in the respondent's community.",
-    status: "active",
-    responses: 342,
-    createdAt: "2024-01-01",
-  },
-  {
-    id: "RQ-002",
-    title: "Water & Sanitation",
-    category: "Infrastructure",
-    description: "Questions about water sources, quality, and sanitation facilities available to households.",
-    status: "active",
-    responses: 287,
-    createdAt: "2024-01-01",
-  },
-  {
-    id: "RQ-003",
-    title: "Education",
-    category: "Social",
-    description: "Questions about access to education, school facilities, and learning outcomes.",
-    status: "active",
-    responses: 198,
-    createdAt: "2024-01-05",
-  },
-  {
-    id: "RQ-004",
-    title: "Income & Livelihood",
-    category: "Economic",
-    description: "Questions about household income sources, employment, and economic challenges.",
-    status: "active",
-    responses: 156,
-    createdAt: "2024-01-08",
-  },
-  {
-    id: "RQ-005",
-    title: "Food Security",
-    category: "Health",
-    description: "Questions about food availability, nutrition, and meal frequency.",
-    status: "inactive",
-    responses: 45,
-    createdAt: "2024-01-10",
-  },
-];
-
 export default function ResearchQuestions() {
-  const [questions, setQuestions] = useState(initialQuestions);
+  const [questions, setQuestions] = useState<ResearchQuestion[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<ResearchQuestion | null>(null);
+  const [languageFilter, setLanguageFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
     title: "",
     category: "",
     description: "",
+    question_text: "",
+    language: "en",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { loading, error, fetchQuestions, createQuestion, updateQuestion, deleteQuestion } = useBackendApi();
+  const { toast } = useToast();
+
+  // Load questions from backend
+  useEffect(() => {
+    loadQuestions();
+  }, []);
+
+  const loadQuestions = async () => {
+    const result = await fetchQuestions();
+    if (result.success) {
+      const questionsData = (result as any).data?.questions || (result as any).data || [];
+      if (Array.isArray(questionsData)) {
+        setQuestions(questionsData);
+      }
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -109,37 +85,67 @@ export default function ResearchQuestions() {
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
     }
+    if (!formData.question_text.trim()) {
+      newErrors.question_text = "Question text is required";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    if (editingQuestion) {
-      setQuestions(
-        questions.map((q) =>
-          q.id === editingQuestion.id
-            ? { ...q, ...formData }
-            : q
-        )
-      );
-    } else {
-      const newQuestion: ResearchQuestion = {
-        id: `RQ-${String(questions.length + 1).padStart(3, "0")}`,
-        title: formData.title,
-        category: formData.category,
-        description: formData.description,
-        status: "active",
-        responses: 0,
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      setQuestions([...questions, newQuestion]);
-    }
+    try {
+      if (editingQuestion) {
+        const result = await updateQuestion(editingQuestion.id, {
+          ...formData,
+          is_active: editingQuestion.is_active,
+        });
+        
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Question updated successfully",
+          });
+          await loadQuestions();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to update question",
+            variant: "destructive",
+          });
+        }
+      } else {
+        const result = await createQuestion({
+          ...formData,
+          is_active: true,
+        });
+        
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Question created successfully",
+          });
+          await loadQuestions();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to create question",
+            variant: "destructive",
+          });
+        }
+      }
 
-    setIsDialogOpen(false);
-    setFormData({ title: "", category: "", description: "" });
-    setEditingQuestion(null);
+      setIsDialogOpen(false);
+      setFormData({ title: "", category: "", description: "", question_text: "", language: "en" });
+      setEditingQuestion(null);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (question: ResearchQuestion) => {
@@ -148,30 +154,66 @@ export default function ResearchQuestions() {
       title: question.title,
       category: question.category,
       description: question.description,
+      question_text: question.question_text || "",
+      language: (question as any).language || "en",
     });
     setIsDialogOpen(true);
   };
 
-  const handleToggleStatus = (id: string) => {
-    setQuestions(
-      questions.map((q) =>
-        q.id === id
-          ? { ...q, status: q.status === "active" ? "inactive" : "active" }
-          : q
-      )
-    );
+  const handleToggleStatus = async (question: ResearchQuestion) => {
+    const result = await updateQuestion(question.id, {
+      is_active: !question.is_active,
+    });
+    
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: `Question ${question.is_active ? 'deactivated' : 'activated'}`,
+      });
+      await loadQuestions();
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to update question status",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setQuestions(questions.filter((q) => q.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this question?")) return;
+    
+    const result = await deleteQuestion(id);
+    
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+      await loadQuestions();
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to delete question",
+        variant: "destructive",
+      });
+    }
   };
 
   const openNewDialog = () => {
     setEditingQuestion(null);
-    setFormData({ title: "", category: "", description: "" });
+    setFormData({ title: "", category: "", description: "", question_text: "", language: "en" });
     setErrors({});
     setIsDialogOpen(true);
   };
+
+  if (loading && questions.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -180,16 +222,27 @@ export default function ResearchQuestions() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Research Questions</h1>
           <p className="text-sm text-muted-foreground">
-            Manage research questions deployed to the voice system
+            Manage research questions deployed to the voice system — Real-time data
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNewDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Question
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Select value={languageFilter} onValueChange={setLanguageFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Languages</SelectItem>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="sw">Kiswahili</SelectItem>
+            </SelectContent>
+          </Select>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNewDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Question
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
@@ -240,6 +293,26 @@ export default function ResearchQuestions() {
                 )}
               </div>
               <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Select
+                  value={formData.language}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, language: value })
+                  }
+                >
+                  <SelectTrigger id="language">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="sw">Kiswahili</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  USSD users will see questions in their selected language
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
@@ -254,6 +327,21 @@ export default function ResearchQuestions() {
                   <p className="text-xs text-destructive">{errors.description}</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="question_text">Question Text</Label>
+                <Textarea
+                  id="question_text"
+                  placeholder="The actual question that will be asked to participants..."
+                  value={formData.question_text}
+                  onChange={(e) =>
+                    setFormData({ ...formData, question_text: e.target.value })
+                  }
+                  rows={2}
+                />
+                {errors.question_text && (
+                  <p className="text-xs text-destructive">{errors.question_text}</p>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -265,10 +353,21 @@ export default function ResearchQuestions() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Total Questions</p>
           <p className="text-2xl font-semibold">{questions.length}</p>
@@ -276,13 +375,19 @@ export default function ResearchQuestions() {
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Active Questions</p>
           <p className="text-2xl font-semibold">
-            {questions.filter((q) => q.status === "active").length}
+            {questions.filter((q) => q.is_active).length}
           </p>
         </div>
         <div className="stat-card">
-          <p className="text-sm font-medium text-muted-foreground">Total Responses</p>
+          <p className="text-sm font-medium text-muted-foreground">English Questions</p>
           <p className="text-2xl font-semibold">
-            {questions.reduce((sum, q) => sum + q.responses, 0).toLocaleString()}
+            {questions.filter((q) => (q as any).language === 'en').length}
+          </p>
+        </div>
+        <div className="stat-card">
+          <p className="text-sm font-medium text-muted-foreground">Kiswahili Questions</p>
+          <p className="text-2xl font-semibold">
+            {questions.filter((q) => (q as any).language === 'sw').length}
           </p>
         </div>
       </div>
@@ -294,6 +399,7 @@ export default function ResearchQuestions() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Language</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Responses</TableHead>
               <TableHead>Status</TableHead>
@@ -301,7 +407,9 @@ export default function ResearchQuestions() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {questions.map((question) => (
+            {questions
+              .filter((q) => languageFilter === "all" || (q as any).language === languageFilter)
+              .map((question) => (
               <TableRow key={question.id}>
                 <TableCell className="font-medium">{question.title}</TableCell>
                 <TableCell>
@@ -309,19 +417,24 @@ export default function ResearchQuestions() {
                     {question.category}
                   </span>
                 </TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-1 text-xs font-medium">
+                    {(question as any).language === 'sw' ? '🇰🇪 Kiswahili' : '🇬🇧 English'}
+                  </span>
+                </TableCell>
                 <TableCell className="max-w-xs truncate">
                   {question.description}
                 </TableCell>
-                <TableCell>{question.responses.toLocaleString()}</TableCell>
+                <TableCell>{(question.response_count || 0).toLocaleString()}</TableCell>
                 <TableCell>
                   <span
                     className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
-                      question.status === "active"
+                      question.is_active
                         ? "bg-success/10 text-success"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {question.status === "active" ? "Active" : "Inactive"}
+                    {question.is_active ? "Active" : "Inactive"}
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
@@ -330,10 +443,10 @@ export default function ResearchQuestions() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleToggleStatus(question.id)}
-                      title={question.status === "active" ? "Deactivate" : "Activate"}
+                      onClick={() => handleToggleStatus(question)}
+                      title={question.is_active ? "Deactivate" : "Activate"}
                     >
-                      {question.status === "active" ? (
+                      {question.is_active ? (
                         <ToggleRight className="h-4 w-4 text-success" />
                       ) : (
                         <ToggleLeft className="h-4 w-4" />

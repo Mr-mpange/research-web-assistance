@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { Download, Copy, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, Copy, ChevronLeft, ChevronRight, Loader2, AlertCircle, Play, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useBackendApi } from "@/hooks/useBackendApi";
+import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/config/api";
 import {
   Select,
   SelectContent,
@@ -12,87 +16,171 @@ import {
 
 interface TranscriptRecord {
   id: string;
-  date: string;
-  phoneNumber: string;
-  question: string;
-  transcript: string;
-  summary: string;
-  keyPoints: string[];
+  created_at: string;
+  phone_number: string;
+  question_title?: string;
+  response_text?: string;
+  transcribed_text?: string;
+  summary_text?: string;
+  key_points?: string[];
+  sentiment?: string;
+  audio_file_path?: string;
+  response_type: string;
 }
 
-const transcripts: TranscriptRecord[] = [
-  {
-    id: "TR-001",
-    date: "2024-01-15",
-    phoneNumber: "+254 712 345 678",
-    question: "Healthcare Access",
-    transcript: `Interviewer: Good morning, thank you for participating in our research survey. Can you tell me about your experience accessing healthcare services in your community?
-
-Respondent: Good morning. Well, the nearest health center is about 15 kilometers from our village. We usually have to take a matatu, which costs around 200 shillings each way. For many families, this is a significant expense.
-
-Interviewer: I understand. How often do you or your family members visit the health center?
-
-Respondent: We try to go at least once a month for my mother who has diabetes. But sometimes we skip visits because of the cost. The medication is also expensive when it's not available at the public facility.
-
-Interviewer: Are there any community health workers in your area?
-
-Respondent: Yes, we have two CHWs who visit homes. They help with basic health education and can treat minor ailments. They're very helpful, especially for mothers with young children. But for serious conditions, we still need to travel to the health center.
-
-Interviewer: What improvements would you like to see in healthcare access?
-
-Respondent: I think having a dispensary closer to our village would help a lot. Also, if the government could provide transport subsidies for medical visits, that would reduce our burden. And of course, ensuring medicines are always available at the public facilities.`,
-    summary: `The respondent describes significant healthcare access challenges in their rural community. The nearest health center is 15km away, requiring transportation costs of 400 KES round-trip. This expense causes some families to skip medical visits.
-
-Key barriers identified include distance to facilities, transportation costs, and medication availability. Community health workers provide valuable local support for basic care and health education.
-
-The respondent suggests three improvements: establishing a local dispensary, providing transport subsidies for medical visits, and ensuring consistent medication supply at public facilities.`,
-    keyPoints: [
-      "Nearest health center is 15km away",
-      "Transportation costs 400 KES round-trip",
-      "Monthly visits for chronic disease management",
-      "2 community health workers serve the area",
-      "Medication shortages at public facilities",
-      "Requests: local dispensary, transport subsidies, consistent drug supply",
-    ],
-  },
-  {
-    id: "TR-002",
-    date: "2024-01-15",
-    phoneNumber: "+254 733 456 789",
-    question: "Water & Sanitation",
-    transcript: `Interviewer: Thank you for joining us. Can you describe the water situation in your household?
-
-Respondent: Our main water source is a borehole about 500 meters from our home. My children fetch water every morning before school. We use about 60 liters per day for cooking, drinking, and washing.
-
-Interviewer: Is the water from the borehole treated or safe to drink?
-
-Respondent: The borehole was drilled by an NGO three years ago. They tested the water and said it was safe. But we still boil water for drinking, especially for the younger children. During the dry season, the water level drops and we sometimes have to wait in long queues.
-
-Interviewer: What about sanitation facilities in your home?
-
-Respondent: We have a pit latrine that we built ourselves. It's about 20 meters from the house. We try to keep it clean, but it fills up every two years or so, and then we have to dig a new one.
-
-Interviewer: Are there any improvements you'd like to see?
-
-Respondent: A piped water connection would be wonderful, but I know that's expensive. At least if the borehole could be upgraded to serve more people during dry season. For sanitation, training on how to build better latrines that last longer would help.`,
-    summary: `The household relies on an NGO-installed borehole 500m from home, using approximately 60 liters daily. Water is boiled before drinking as a safety precaution. Dry season brings reduced water availability and longer wait times.
-
-Sanitation consists of a self-built pit latrine requiring replacement every two years. The respondent demonstrates good hygiene awareness through boiling practices and latrine maintenance.
-
-Priority improvements include borehole capacity upgrades for dry season demand and community training on durable latrine construction techniques.`,
-    keyPoints: [
-      "Borehole water source 500m from home",
-      "60 liters daily consumption",
-      "Water boiled for drinking safety",
-      "Dry season creates water scarcity",
-      "Pit latrine replaced every 2 years",
-      "Requests: borehole upgrade, latrine construction training",
-    ],
-  },
-];
-
 export default function Transcriptions() {
-  const [selectedTranscript, setSelectedTranscript] = useState(transcripts[0]);
+  const [transcripts, setTranscripts] = useState<TranscriptRecord[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const { loading, error, fetchResponses } = useBackendApi();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadTranscripts();
+  }, []);
+
+  const loadTranscripts = async () => {
+    const result = await fetchResponses({
+      page: 1,
+      limit: 100,
+      includeAI: true,
+    });
+
+    if (result.success && result.data) {
+      const responses = result.data.responses || result.data;
+      if (Array.isArray(responses)) {
+        // Filter only responses with transcriptions or summaries
+        const withTranscripts = responses.filter(
+          (r: TranscriptRecord) => r.transcribed_text || r.summary_text
+        );
+        setTranscripts(withTranscripts);
+      }
+    }
+  };
+
+  const selectedTranscript = transcripts[selectedIndex] || null;
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${label} copied to clipboard`,
+    });
+  };
+
+  const handlePlayAudio = () => {
+    if (!selectedTranscript?.audio_file_path) {
+      toast({
+        title: "No Audio",
+        description: "Audio file not available for this recording",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const audioUrl = `${API_BASE_URL}${selectedTranscript.audio_file_path}`;
+    const audio = new Audio(audioUrl);
+    
+    audio.play().then(() => {
+      setAudioPlaying(true);
+      toast({
+        title: "Playing Audio",
+        description: "Audio playback started",
+      });
+    }).catch((err) => {
+      toast({
+        title: "Playback Error",
+        description: "Failed to play audio file",
+        variant: "destructive",
+      });
+    });
+
+    audio.onended = () => setAudioPlaying(false);
+  };
+
+  const handleExportPDF = () => {
+    toast({
+      title: "Export PDF",
+      description: "PDF export feature coming soon",
+    });
+  };
+
+  const handleExportCSV = () => {
+    if (transcripts.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No transcripts available to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ["ID", "Date", "Phone", "Question", "Transcript", "Summary", "Sentiment"];
+    const rows = transcripts.map(t => [
+      t.id,
+      new Date(t.created_at).toLocaleDateString(),
+      t.phone_number || "N/A",
+      t.question_title || "N/A",
+      (t.transcribed_text || "").replace(/"/g, '""'),
+      (t.summary_text || "").replace(/"/g, '""'),
+      t.sentiment || "N/A"
+    ]);
+
+    const csv = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    // Download CSV
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transcripts_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${transcripts.length} transcripts to CSV`,
+    });
+  };
+
+  const goToPrevious = () => {
+    setSelectedIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const goToNext = () => {
+    setSelectedIndex(prev => Math.min(transcripts.length - 1, prev + 1));
+  };
+
+  if (loading && transcripts.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!loading && transcripts.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Transcriptions & Summaries</h1>
+          <p className="text-sm text-muted-foreground">
+            Review transcribed interviews and AI-generated summaries — Real-time data
+          </p>
+        </div>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No transcriptions available yet. Voice recordings will appear here once processed by AI.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -101,126 +189,214 @@ export default function Transcriptions() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Transcriptions & Summaries</h1>
           <p className="text-sm text-muted-foreground">
-            Review transcribed interviews and AI-generated summaries
+            Review transcribed interviews and AI-generated summaries — Real-time data
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <Download className="mr-2 h-4 w-4" />
             Export PDF
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportCSV}>
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
         </div>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Record Selector */}
       <div className="flex items-center gap-4">
         <Select
-          value={selectedTranscript.id}
+          value={selectedTranscript?.id || ""}
           onValueChange={(id) => {
-            const transcript = transcripts.find((t) => t.id === id);
-            if (transcript) setSelectedTranscript(transcript);
+            const index = transcripts.findIndex((t) => t.id === id);
+            if (index !== -1) setSelectedIndex(index);
           }}
         >
           <SelectTrigger className="w-64">
-            <SelectValue />
+            <SelectValue placeholder="Select a transcript" />
           </SelectTrigger>
           <SelectContent>
             {transcripts.map((t) => (
               <SelectItem key={t.id} value={t.id}>
-                {t.id} - {t.date}
+                {t.id.substring(0, 8)} - {new Date(t.created_at).toLocaleDateString()}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={goToPrevious}
+            disabled={selectedIndex === 0}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={goToNext}
+            disabled={selectedIndex >= transcripts.length - 1}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
         <div className="text-sm text-muted-foreground">
-          Record 1 of {transcripts.length}
+          Record {selectedIndex + 1} of {transcripts.length}
         </div>
+        {selectedTranscript?.audio_file_path && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handlePlayAudio}
+            disabled={audioPlaying}
+          >
+            {audioPlaying ? (
+              <>
+                <Volume2 className="mr-2 h-4 w-4 animate-pulse" />
+                Playing...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Play Audio
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
-      {/* Metadata */}
-      <div className="grid gap-4 rounded-md border bg-card p-4 sm:grid-cols-4">
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Phone Number</p>
-          <p className="text-sm font-medium">{selectedTranscript.phoneNumber}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Date</p>
-          <p className="text-sm font-medium">{selectedTranscript.date}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Research Question</p>
-          <p className="text-sm font-medium">{selectedTranscript.question}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Record ID</p>
-          <p className="text-sm font-medium">{selectedTranscript.id}</p>
-        </div>
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Transcript Panel */}
-        <div className="rounded-md border bg-card">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <h3 className="text-sm font-semibold">Full Transcript</h3>
-            <Button variant="ghost" size="sm">
-              <Copy className="mr-2 h-4 w-4" />
-              Copy
-            </Button>
+      {selectedTranscript && (
+        <>
+          {/* Metadata */}
+          <div className="grid gap-4 rounded-md border bg-card p-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Phone Number</p>
+              <p className="text-sm font-medium">{selectedTranscript.phone_number || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Date</p>
+              <p className="text-sm font-medium">
+                {new Date(selectedTranscript.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Research Question</p>
+              <p className="text-sm font-medium">{selectedTranscript.question_title || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Sentiment</p>
+              <p className="text-sm font-medium capitalize">
+                {selectedTranscript.sentiment || "N/A"}
+              </p>
+            </div>
           </div>
-          <ScrollArea className="h-96 p-4">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {selectedTranscript.transcript}
-            </div>
-          </ScrollArea>
-        </div>
 
-        {/* Summary Panel */}
-        <div className="space-y-4">
-          <div className="rounded-md border bg-card">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="text-sm font-semibold">AI-Generated Summary</h3>
-              <Button variant="ghost" size="sm">
-                <Copy className="mr-2 h-4 w-4" />
-                Copy
-              </Button>
-            </div>
-            <ScrollArea className="h-48 p-4">
-              <div className="text-sm leading-relaxed text-foreground">
-                {selectedTranscript.summary}
+          {/* Two-column layout */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Transcript Panel */}
+            <div className="rounded-md border bg-card">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <h3 className="text-sm font-semibold">Full Transcript</h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleCopy(
+                    selectedTranscript.transcribed_text || selectedTranscript.response_text || "",
+                    "Transcript"
+                  )}
+                  disabled={!selectedTranscript.transcribed_text && !selectedTranscript.response_text}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                </Button>
               </div>
-            </ScrollArea>
-          </div>
+              <ScrollArea className="h-96 p-4">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {selectedTranscript.transcribed_text || 
+                   selectedTranscript.response_text || 
+                   "No transcript available"}
+                </div>
+              </ScrollArea>
+            </div>
 
-          <div className="rounded-md border bg-card">
-            <div className="border-b px-4 py-3">
-              <h3 className="text-sm font-semibold">Key Points</h3>
-            </div>
-            <div className="p-4">
-              <ul className="space-y-2">
-                {selectedTranscript.keyPoints.map((point, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-chart-2" />
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
+            {/* Summary Panel */}
+            <div className="space-y-4">
+              <div className="rounded-md border bg-card">
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <h3 className="text-sm font-semibold">AI-Generated Summary</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleCopy(selectedTranscript.summary_text || "", "Summary")}
+                    disabled={!selectedTranscript.summary_text}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
+                <ScrollArea className="h-48 p-4">
+                  <div className="text-sm leading-relaxed text-foreground">
+                    {selectedTranscript.summary_text || "No summary available yet. AI processing may be in progress."}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {selectedTranscript.key_points && selectedTranscript.key_points.length > 0 && (
+                <div className="rounded-md border bg-card">
+                  <div className="border-b px-4 py-3">
+                    <h3 className="text-sm font-semibold">Key Points</h3>
+                  </div>
+                  <div className="p-4">
+                    <ul className="space-y-2">
+                      {selectedTranscript.key_points.map((point, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-chart-2" />
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Info */}
+              <div className="rounded-md border bg-card p-4">
+                <h3 className="text-sm font-semibold mb-3">Recording Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Record ID:</span>
+                    <span className="font-mono text-xs">{selectedTranscript.id.substring(0, 12)}...</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type:</span>
+                    <span className="capitalize">{selectedTranscript.response_type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Audio Available:</span>
+                    <span>{selectedTranscript.audio_file_path ? "Yes" : "No"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">AI Processed:</span>
+                    <span>{selectedTranscript.summary_text ? "Yes" : "Pending"}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

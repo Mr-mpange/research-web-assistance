@@ -22,6 +22,7 @@ import CaseStudies from "./pages/CaseStudies";
 import Pricing from "./pages/Pricing";
 import Resources from "./pages/Resources";
 import Auth from "./pages/Auth";
+import BackendTest from "./pages/BackendTest";
 
 // Dashboard pages
 import DashboardOverview from "./pages/DashboardOverview";
@@ -41,7 +42,12 @@ const queryClient = new QueryClient();
      <TooltipProvider>
        <Toaster />
        <Sonner />
-       <BrowserRouter>
+       <BrowserRouter
+         future={{
+           v7_startTransition: true,
+           v7_relativeSplatPath: true,
+         }}
+       >
          <AuthProvider>
            <Routes>
              {/* Public Routes */}
@@ -57,6 +63,7 @@ const queryClient = new QueryClient();
                 <Route path="/case-studies" element={<CaseStudies />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/resources" element={<Resources />} />
+                <Route path="/backend-test" element={<BackendTest />} />
               </Route>
              <Route path="/auth" element={<Auth />} />
  

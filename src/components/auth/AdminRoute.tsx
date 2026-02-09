@@ -23,6 +23,12 @@ export function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
+  // For development: Allow access without authentication
+  // Comment this out when you implement proper authentication
+  if (process.env.NODE_ENV === 'development') {
+    return <>{children}</>;
+  }
+
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }

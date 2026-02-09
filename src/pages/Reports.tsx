@@ -1,5 +1,9 @@
-import { FileText, Download, Calendar, BarChart3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, Download, Calendar, BarChart3, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useBackendApi } from "@/hooks/useBackendApi";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -7,73 +11,165 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
-
-interface Report {
-  id: string;
-  name: string;
-  type: "weekly" | "monthly" | "custom";
-  generatedAt: string;
-  size: string;
-  format: "pdf" | "csv" | "xlsx";
-}
-
-const reports: Report[] = [
-  {
-    id: "RPT-001",
-    name: "Weekly Summary - Week 2, January 2024",
-    type: "weekly",
-    generatedAt: "2024-01-15 09:30",
-    size: "2.4 MB",
-    format: "pdf",
-  },
-  {
-    id: "RPT-002",
-    name: "Voice Records Export - January 2024",
-    type: "monthly",
-    generatedAt: "2024-01-14 14:22",
-    size: "8.1 MB",
-    format: "csv",
-  },
-  {
-    id: "RPT-003",
-    name: "Participant Demographics Report",
-    type: "custom",
-    generatedAt: "2024-01-13 11:15",
-    size: "1.2 MB",
-    format: "xlsx",
-  },
-  {
-    id: "RPT-004",
-    name: "Weekly Summary - Week 1, January 2024",
-    type: "weekly",
-    generatedAt: "2024-01-08 09:30",
-    size: "2.1 MB",
-    format: "pdf",
-  },
-  {
-    id: "RPT-005",
-    name: "Healthcare Access Analysis",
-    type: "custom",
-    generatedAt: "2024-01-05 16:45",
-    size: "3.7 MB",
-    format: "pdf",
-  },
-];
-
-const formatIcons = {
-  pdf: "📄",
-  csv: "📊",
-  xlsx: "📈",
-};
 
 export default function Reports() {
   const [typeFilter, setTypeFilter] = useState("all");
+  const [analytics, setAnalytics] = useState<any>(null);
+  const { loading, error, fetchAnalytics, fetchResponses, fetchQuestions } = useBackendApi();
+  const { toast } = useToast();
 
-  const filteredReports =
-    typeFilter === "all"
-      ? reports
-      : reports.filter((r) => r.type === typeFilter);
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  const loadAnalytics = async () => {
+    const result = await fetchAnalytics();
+    if (result.success && result.data) {
+      setAnalytics(result.data.analytics || result.data);
+    }
+  };
+
+  const generateWeeklySummary = async () => {
+    toast({
+      title: "Generating Report",
+      description: "Creating weekly summary report...",
+    });
+
+    try {
+      const result = await fetchAnalytics({
+        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        granularity: 'day'
+      });
+
+      if (result.success && result.data) {
+        const data = result.data.analytics || result.data;
+        
+        // Create report content
+        const report = `
+WEEKLY SUMMARY REPORT
+Generated: ${new Date().toLocaleString()}
+
+=== OVERVIEW ===
+Total Responses: ${data.responseStats?.total_responses || 0}
+Voice Responses: ${data.responseStats?.voice_responses || 0}
+USSD Responses: ${data.responseStats?.ussd_responses || 0}
+Unique Participants: ${data.responseStats?.unique_participants || 0}
+
+=== AI PROCESSING ===
+Total Transcriptions: ${data.aiStats?.total_transcriptions || 0}
+Total Summaries: ${data.aiStats?.total_summaries || 0}
+Average Confidence: ${((data.aiStats?.avg_transcription_confidence || 0) * 100).toFixed(1)}%
+
+=== SENTIMENT ANALYSIS ===
+Positive: ${data.aiStats?.positive_responses || 0}
+Negative: ${data.aiStats?.negative_responses || 0}
+Neutral: ${data.aiStats?.neutral_responses || 0}
+
+=== TOP QUESTIONS ===
+${(data.topQuestions || []).map((q: any, i: number) => 
+  `${i + 1}. ${q.title} (${q.response_count} responses)`
+).join('\n')}
+        `.trim();
+
+        // Download as text file
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `weekly_summary_${new Date().toISOString().split('T')[0]}.txt`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "Report Generated",
+          description: "Weekly summary downloaded successfully",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to generate report",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportAllData = async () => {
+    toast({
+      title: "Exporting Data",
+      description: "Preparing complete dataset...",
+    });
+
+    try {
+      const [responsesResult, questionsResult] = await Promise.all([
+        fetchResponses({ page: 1, limit: 1000, includeAI: true }),
+        fetchQuestions()
+      ]);
+
+      if (responsesResult.success && responsesResult.data) {
+        const responses = responsesResult.data.responses || responsesResult.data;
+        
+        // Create CSV
+        const headers = [
+          "ID", "Date", "Phone", "Type", "Question", 
+          "Response", "Transcript", "Summary", "Sentiment"
+        ];
+        
+        const rows = (Array.isArray(responses) ? responses : []).map((r: any) => [
+          r.id,
+          new Date(r.created_at).toLocaleString(),
+          r.phone_number || "N/A",
+          r.response_type,
+          r.question_title || "N/A",
+          (r.response_text || "").replace(/"/g, '""').substring(0, 500),
+          (r.transcribed_text || "").replace(/"/g, '""').substring(0, 500),
+          (r.summary_text || "").replace(/"/g, '""').substring(0, 500),
+          r.sentiment || "N/A"
+        ]);
+
+        const csv = [
+          headers.join(","),
+          ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        // Download CSV
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `complete_dataset_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "Export Complete",
+          description: `Exported ${rows.length} records to CSV`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to export data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createCustomReport = () => {
+    toast({
+      title: "Custom Report",
+      description: "Custom report builder coming soon",
+    });
+  };
+
+  if (loading && !analytics) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,10 +178,18 @@ export default function Reports() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Reports & Exports</h1>
           <p className="text-sm text-muted-foreground">
-            Generate and download research data reports
+            Generate and download research data reports — Real-time data
           </p>
         </div>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -97,7 +201,13 @@ export default function Reports() {
           <p className="mb-3 text-xs text-muted-foreground">
             Generate this week's summary report
           </p>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={generateWeeklySummary}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Generate Report
           </Button>
         </div>
@@ -109,7 +219,13 @@ export default function Reports() {
           <p className="mb-3 text-xs text-muted-foreground">
             Download complete dataset as CSV
           </p>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={exportAllData}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Export CSV
           </Button>
         </div>
@@ -121,63 +237,124 @@ export default function Reports() {
           <p className="mb-3 text-xs text-muted-foreground">
             Create a report with custom parameters
           </p>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={createCustomReport}
+          >
             Create Custom
           </Button>
         </div>
       </div>
 
-      {/* Reports List */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Reports</h2>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-3">
-          {filteredReports.map((report) => (
-            <div
-              key={report.id}
-              className="flex items-center justify-between rounded-md border bg-card p-4"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-lg">
-                  {formatIcons[report.format]}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{report.name}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>Generated: {report.generatedAt}</span>
-                    <span>•</span>
-                    <span>{report.size}</span>
-                    <span>•</span>
-                    <span className="uppercase">{report.format}</span>
-                  </div>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
+      {/* Analytics Summary */}
+      {analytics && (
+        <div className="rounded-md border bg-card p-6">
+          <h2 className="text-sm font-semibold mb-4">Current Statistics</h2>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Responses</p>
+              <p className="text-2xl font-semibold">
+                {analytics.responseStats?.total_responses || 0}
+              </p>
             </div>
-          ))}
+            <div>
+              <p className="text-xs text-muted-foreground">Voice Recordings</p>
+              <p className="text-2xl font-semibold">
+                {analytics.responseStats?.voice_responses || 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">AI Summaries</p>
+              <p className="text-2xl font-semibold">
+                {analytics.aiStats?.total_summaries || 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Participants</p>
+              <p className="text-2xl font-semibold">
+                {analytics.responseStats?.unique_participants || 0}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Options */}
+      <div className="rounded-md border bg-card p-6">
+        <h2 className="text-sm font-semibold mb-4">Available Export Formats</h2>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 rounded-md border">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">📊</div>
+              <div>
+                <p className="text-sm font-medium">CSV Export</p>
+                <p className="text-xs text-muted-foreground">
+                  Complete dataset with all responses and AI analysis
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={exportAllData}
+              disabled={loading}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-md border">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">📄</div>
+              <div>
+                <p className="text-sm font-medium">Weekly Summary</p>
+                <p className="text-xs text-muted-foreground">
+                  Text report with statistics and insights
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={generateWeeklySummary}
+              disabled={loading}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Generate
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-md border">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">📈</div>
+              <div>
+                <p className="text-sm font-medium">Analytics Report</p>
+                <p className="text-xs text-muted-foreground">
+                  Detailed analytics with charts and trends
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={createCustomReport}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Coming Soon
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Results count */}
-      <p className="text-sm text-muted-foreground">
-        Showing {filteredReports.length} of {reports.length} reports
-      </p>
+      {/* Info */}
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          All exports include real-time data from the backend. Reports are generated on-demand and downloaded directly to your device.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

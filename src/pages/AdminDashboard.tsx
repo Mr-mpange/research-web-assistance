@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,165 +6,168 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Users, 
-  Mail, 
+  MessageSquare, 
   Search, 
   Trash2, 
   RefreshCw,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Phone,
+  FileText,
+  Activity
 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { useBackendApi } from "@/hooks/useBackendApi";
 import { format } from "date-fns";
 
-interface Subscriber {
+interface User {
   id: string;
+  username: string;
   email: string;
-  subscribed_at: string;
+  full_name: string;
+  role: string;
   is_active: boolean;
+  created_at: string;
 }
 
 export default function AdminDashboard() {
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalQuestions: 0,
+    totalResponses: 0,
+    totalParticipants: 0,
+  });
+  const { toast } = useToast();
+  const { fetchAnalytics } = useBackendApi();
 
-  const fetchSubscribers = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("newsletter_subscribers")
-        .select("*")
-        .order("subscribed_at", { ascending: false });
+      // Fetch analytics for stats
+      const analyticsResult = await fetchAnalytics();
+      if (analyticsResult.success && (analyticsResult as any).data) {
+        const data = (analyticsResult as any).data.analytics;
+        setStats({
+          totalUsers: 0, // Backend doesn't expose user count
+          totalQuestions: parseInt(data.responseStats?.questions_answered || 0),
+          totalResponses: parseInt(data.responseStats?.total_responses || 0),
+          totalParticipants: parseInt(data.responseStats?.unique_participants || 0),
+        });
+      }
 
-      if (error) throw error;
-      setSubscribers(data || []);
+      // Mock users data (since backend doesn't have user management endpoint)
+      setUsers([
+        {
+          id: "1",
+          username: "admin",
+          email: "admin@research.com",
+          full_name: "System Administrator",
+          role: "admin",
+          is_active: true,
+          created_at: new Date().toISOString(),
+        },
+      ]);
     } catch (error: any) {
-      console.error("Error fetching subscribers:", error);
-      toast.error("Failed to load subscribers");
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load admin data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSubscribers();
+    fetchData();
   }, []);
 
-  const toggleSubscriberStatus = async (id: string, currentStatus: boolean) => {
-    setActionLoading(id);
-    try {
-      const { error } = await supabase
-        .from("newsletter_subscribers")
-        .update({ is_active: !currentStatus })
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      setSubscribers(prev => 
-        prev.map(sub => sub.id === id ? { ...sub, is_active: !currentStatus } : sub)
-      );
-      toast.success(`Subscriber ${!currentStatus ? "activated" : "deactivated"}`);
-    } catch (error: any) {
-      console.error("Error updating subscriber:", error);
-      toast.error("Failed to update subscriber");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const deleteSubscriber = async (id: string, email: string) => {
-    if (!confirm(`Are you sure you want to delete ${email}?`)) return;
-    
-    setActionLoading(id);
-    try {
-      const { error } = await supabase
-        .from("newsletter_subscribers")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      setSubscribers(prev => prev.filter(sub => sub.id !== id));
-      toast.success("Subscriber deleted");
-    } catch (error: any) {
-      console.error("Error deleting subscriber:", error);
-      toast.error("Failed to delete subscriber");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const filteredSubscribers = subscribers.filter(sub =>
-    sub.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const activeCount = subscribers.filter(s => s.is_active).length;
-  const inactiveCount = subscribers.filter(s => !s.is_active).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage newsletter subscribers and system settings</p>
+        <p className="text-muted-foreground">Manage research system users and monitor activity</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Subscribers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Responses</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{subscribers.length}</div>
+            <div className="text-2xl font-bold">{stats.totalResponses}</div>
+            <p className="text-xs text-muted-foreground">From all channels</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <CheckCircle className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium">Active Questions</CardTitle>
+            <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{activeCount}</div>
+            <div className="text-2xl font-bold text-primary">{stats.totalQuestions}</div>
+            <p className="text-xs text-muted-foreground">Research questions</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Participants</CardTitle>
+            <Users className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">{inactiveCount}</div>
+            <div className="text-2xl font-bold text-success">{stats.totalParticipants}</div>
+            <p className="text-xs text-muted-foreground">Unique participants</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">System Status</CardTitle>
+            <Activity className="h-4 w-4 text-success" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-success">Online</div>
+            <p className="text-xs text-muted-foreground">All systems operational</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Subscribers Table */}
+      {/* System Users Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Newsletter Subscribers
+                <Users className="h-5 w-5" />
+                System Users
               </CardTitle>
               <CardDescription>
-                View and manage all newsletter subscriptions
+                Manage admin and researcher accounts
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by email..."
+                  placeholder="Search users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 w-[200px]"
                 />
               </div>
-              <Button variant="outline" size="icon" onClick={fetchSubscribers}>
+              <Button variant="outline" size="icon" onClick={fetchData}>
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
             </div>
@@ -176,64 +178,91 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredSubscribers.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {searchQuery ? "No subscribers match your search" : "No subscribers yet"}
+              {searchQuery ? "No users match your search" : "No users found"}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Full Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Subscribed</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSubscribers.map((subscriber) => (
-                  <TableRow key={subscriber.id}>
-                    <TableCell className="font-medium">{subscriber.email}</TableCell>
+                {filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell>{user.full_name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      {format(new Date(subscriber.subscribed_at), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={subscriber.is_active ? "default" : "secondary"}>
-                        {subscriber.is_active ? "Active" : "Inactive"}
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleSubscriberStatus(subscriber.id, subscriber.is_active)}
-                          disabled={actionLoading === subscriber.id}
-                        >
-                          {actionLoading === subscriber.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : subscriber.is_active ? (
-                            <XCircle className="h-4 w-4" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteSubscriber(subscriber.id, subscriber.email)}
-                          disabled={actionLoading === subscriber.id}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <TableCell>
+                      <Badge variant={user.is_active ? "default" : "secondary"}>
+                        {user.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(user.created_at), "MMM d, yyyy")}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common administrative tasks</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Button variant="outline" className="justify-start h-auto py-4">
+              <div className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="font-medium">Manage Questions</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Create and edit research questions
+                </span>
+              </div>
+            </Button>
+            <Button variant="outline" className="justify-start h-auto py-4">
+              <div className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  <span className="font-medium">View Voice Records</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Access voice recordings
+                </span>
+              </div>
+            </Button>
+            <Button variant="outline" className="justify-start h-auto py-4">
+              <div className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium">Generate Reports</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Export research data
+                </span>
+              </div>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,8 +1,110 @@
-# Welcome to your Lovable project
+# Research Web Assistance - Frontend
 
-## Project info
+AI-Powered Research Data Collection System - Web Interface
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Project Overview
+
+This is the frontend web application for the Research Assistance System. It connects to a backend API running on Google Cloud Run that provides:
+- USSD & Voice call data collection
+- Google Gemini AI-powered analysis
+- Africa's Talking integration
+- Real-time analytics and reporting
+
+## Backend Integration
+
+**Backend URL**: `https://research-system-864580156744.us-central1.run.app`
+
+The frontend communicates with the backend API for:
+- Research questions management
+- Response data and analytics
+- AI-powered transcriptions and summaries
+- SMS notifications
+
+📚 **See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for complete setup instructions**
+📚 **See [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md) for API integration details**
+
+## Quick Start
+
+### 1. Test Backend Connection
+
+```bash
+# Quick test (requires Node.js)
+node test-backend-connection.js
+```
+
+### 2. Install & Run
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`
+
+### 3. Verify Integration
+
+Open your browser console and test:
+```javascript
+fetch('https://research-system-864580156744.us-central1.run.app/health')
+  .then(r => r.json())
+  .then(console.log);
+```
+
+## Environment Setup
+
+The `.env` file is already configured with:
+- Supabase credentials (for auth & database)
+- Backend API URL (Google Cloud Run)
+
+```env
+VITE_SUPABASE_URL="https://cgfsbezhsmmoliegebnm.supabase.co"
+VITE_API_BASE_URL="https://research-system-864580156744.us-central1.run.app"
+```
+
+## Using the Backend API
+
+### Option 1: Use the Custom Hook (Recommended)
+
+```tsx
+import { useBackendApi } from '@/hooks/useBackendApi';
+
+function MyComponent() {
+  const { loading, error, fetchQuestions, fetchAnalytics } = useBackendApi();
+  
+  useEffect(() => {
+    const loadData = async () => {
+      const questions = await fetchQuestions({ active: true });
+      const analytics = await fetchAnalytics();
+      console.log(questions, analytics);
+    };
+    loadData();
+  }, []);
+  
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+### Option 2: Direct API Service
+
+```tsx
+import { questionsService, analyticsService } from '@/services/apiService';
+
+const questions = await questionsService.list({ language: 'en' });
+const analytics = await analyticsService.summary();
+```
+
+## Available API Endpoints
+
+- `GET /health` - Health check
+- `GET /api/questions` - Fetch research questions
+- `GET /api/responses` - Fetch participant responses
+- `GET /api/analytics` - Fetch analytics data
+- `POST /api/questions` - Create new question
+- `POST /sms/thank-you` - Send thank you SMS
+- And more... (see [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md))
 
 ## How can I edit this code?
 
