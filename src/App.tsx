@@ -1,13 +1,14 @@
- import { Toaster } from "@/components/ui/toaster";
- import { Toaster as Sonner } from "@/components/ui/sonner";
- import { TooltipProvider } from "@/components/ui/tooltip";
- import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
- import { BrowserRouter, Routes, Route } from "react-router-dom";
- import { AuthProvider } from "@/contexts/AuthContext";
- import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
- import { PublicLayout } from "@/components/public/PublicLayout";
- import { DashboardLayout } from "./components/layout/DashboardLayout";
- 
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminRoute } from "@/components/auth/AdminRoute";
+import { PublicLayout } from "@/components/public/PublicLayout";
+import { DashboardLayout } from "./components/layout/DashboardLayout";
+
 // Public pages
 import Home from "./pages/Home";
 import Features from "./pages/Features";
@@ -21,16 +22,17 @@ import CaseStudies from "./pages/CaseStudies";
 import Pricing from "./pages/Pricing";
 import Resources from "./pages/Resources";
 import Auth from "./pages/Auth";
- 
- // Dashboard pages
- import DashboardOverview from "./pages/DashboardOverview";
- import VoiceRecords from "./pages/VoiceRecords";
- import Transcriptions from "./pages/Transcriptions";
- import ResearchQuestions from "./pages/ResearchQuestions";
- import Participants from "./pages/Participants";
- import Reports from "./pages/Reports";
- import Settings from "./pages/Settings";
- import NotFound from "./pages/NotFound";
+
+// Dashboard pages
+import DashboardOverview from "./pages/DashboardOverview";
+import VoiceRecords from "./pages/VoiceRecords";
+import Transcriptions from "./pages/Transcriptions";
+import ResearchQuestions from "./pages/ResearchQuestions";
+import Participants from "./pages/Participants";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
+import AdminDashboard from "./pages/AdminDashboard";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -66,16 +68,29 @@ const queryClient = new QueryClient();
                  </ProtectedRoute>
                }
              >
-               <Route path="/dashboard" element={<DashboardOverview />} />
-               <Route path="/voice-records" element={<VoiceRecords />} />
-               <Route path="/transcriptions" element={<Transcriptions />} />
-               <Route path="/summaries" element={<Transcriptions />} />
-               <Route path="/questions" element={<ResearchQuestions />} />
-               <Route path="/participants" element={<Participants />} />
-               <Route path="/reports" element={<Reports />} />
-               <Route path="/settings" element={<Settings />} />
-             </Route>
-             <Route path="*" element={<NotFound />} />
+              <Route path="/dashboard" element={<DashboardOverview />} />
+              <Route path="/voice-records" element={<VoiceRecords />} />
+              <Route path="/transcriptions" element={<Transcriptions />} />
+              <Route path="/summaries" element={<Transcriptions />} />
+              <Route path="/questions" element={<ResearchQuestions />} />
+              <Route path="/participants" element={<Participants />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+            
+            {/* Admin Routes */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <DashboardLayout />
+                </AdminRoute>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+            </Route>
+            
+            <Route path="*" element={<NotFound />} />
            </Routes>
          </AuthProvider>
        </BrowserRouter>

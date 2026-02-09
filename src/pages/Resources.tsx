@@ -1,24 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { ArrowRight } from "lucide-react";
 import { FadeInSection } from "@/components/public/FadeInSection";
-import { 
-  FileText, 
-  BookOpen, 
-  Newspaper, 
-  ArrowRight, 
-  Calendar,
-  Download,
-  ExternalLink,
-  Mail,
-  Loader2,
-  CheckCircle
-} from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { ArticleCard } from "@/components/resources/ArticleCard";
+import { WhitepaperCard } from "@/components/resources/WhitepaperCard";
+import { NewsletterSignup } from "@/components/resources/NewsletterSignup";
+import { ArticleFilters } from "@/components/resources/ArticleFilters";
 
 const articles = [
   {
@@ -92,72 +80,29 @@ const whitepapers = [
   },
 ];
 
-const getCategoryIcon = (type: string) => {
-  switch (type) {
-    case "guide":
-      return BookOpen;
-    case "case-study":
-      return FileText;
-    case "update":
-      return Newspaper;
-    default:
-      return FileText;
-  }
-};
-
-const getCategoryColor = (type: string) => {
-  switch (type) {
-    case "guide":
-      return "bg-primary/10 text-primary";
-    case "case-study":
-      return "bg-secondary/10 text-secondary";
-    case "update":
-      return "bg-muted text-muted-foreground";
-    case "technical":
-      return "bg-accent text-accent-foreground";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-};
+const articleTypes = [
+  { value: "guide", label: "Guides" },
+  { value: "case-study", label: "Case Studies" },
+  { value: "technical", label: "Technical" },
+  { value: "update", label: "Updates" },
+];
 
 export default function Resources() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("newsletter_subscribers")
-        .insert({ email: email.trim() });
-
-      if (error) {
-        if (error.code === "23505") {
-          toast.info("You're already subscribed to our newsletter!");
-        } else {
-          throw error;
-        }
-      } else {
-        setSubscribed(true);
-        toast.success("Successfully subscribed to newsletter!");
-        setEmail("");
-      }
-    } catch (error: any) {
-      console.error("Newsletter subscription error:", error);
-      toast.error("Failed to subscribe. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownload = (filename: string, title: string) => {
-    // Since we don't have actual PDFs uploaded yet, show a message
-    toast.info(`"${title}" will be available for download soon. Contact us for early access.`);
-  };
+  const filteredArticles = useMemo(() => {
+    return articles.filter((article) => {
+      const matchesSearch = 
+        article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        article.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        article.category.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesType = selectedType === null || article.type === selectedType;
+      
+      return matchesSearch && matchesType;
+    });
+  }, [searchQuery, selectedType]);
 
   return (
     <div>
@@ -185,48 +130,46 @@ export default function Resources() {
       <section className="py-16 md:py-24">
         <div className="container">
           <FadeInSection>
-            <h2 className="text-2xl font-bold text-foreground mb-8">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
               Latest Articles
             </h2>
           </FadeInSection>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.map((article, index) => {
-              const Icon = getCategoryIcon(article.type);
-              return (
+          <FadeInSection delay={0.1}>
+            <ArticleFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedType={selectedType}
+              onTypeChange={setSelectedType}
+              types={articleTypes}
+            />
+          </FadeInSection>
+
+          {filteredArticles.length === 0 ? (
+            <FadeInSection>
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No articles found matching your criteria.</p>
+                <Button 
+                  variant="link" 
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedType(null);
+                  }}
+                  className="mt-2"
+                >
+                  Clear filters
+                </Button>
+              </div>
+            </FadeInSection>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredArticles.map((article, index) => (
                 <FadeInSection key={index} delay={index * 0.05}>
-                  <Card className="h-full flex flex-col hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge 
-                          variant="secondary" 
-                          className={getCategoryColor(article.type)}
-                        >
-                          <Icon className="h-3 w-3 mr-1" />
-                          {article.category}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-lg leading-snug">
-                        {article.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col">
-                      <CardDescription className="flex-1 leading-relaxed">
-                        {article.description}
-                      </CardDescription>
-                      <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {article.date}
-                        </span>
-                        <span>{article.readTime}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ArticleCard article={article} />
                 </FadeInSection>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -244,27 +187,7 @@ export default function Resources() {
           <div className="grid md:grid-cols-3 gap-6">
             {whitepapers.map((paper, index) => (
               <FadeInSection key={index} delay={index * 0.1}>
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{paper.title}</CardTitle>
-                    <CardDescription>{paper.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        {paper.pages}
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDownload(paper.filename, paper.title)}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <WhitepaperCard paper={paper} />
               </FadeInSection>
             ))}
           </div>
@@ -275,63 +198,7 @@ export default function Resources() {
       <section className="py-16">
         <div className="container">
           <FadeInSection>
-            <div className="max-w-xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
-                <Mail className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">
-                Stay Updated
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Get the latest research guides, platform updates, and field research 
-                insights delivered to your inbox.
-              </p>
-              
-              {subscribed ? (
-                <div className="flex items-center justify-center gap-2 text-primary">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">You're subscribed!</span>
-                </div>
-              ) : (
-                <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                  <Input
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={loading}>
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        Subscribe
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </form>
-              )}
-              
-              <p className="text-xs text-muted-foreground mt-4">
-                We respect your privacy. Unsubscribe at any time.
-              </p>
-              
-              <div className="mt-6">
-                <Button variant="outline" size="sm" asChild>
-                  <a 
-                    href="https://twitter.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    Follow on Twitter
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </a>
-                </Button>
-              </div>
-            </div>
+            <NewsletterSignup />
           </FadeInSection>
         </div>
       </section>
