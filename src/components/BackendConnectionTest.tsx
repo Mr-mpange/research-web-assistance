@@ -18,13 +18,15 @@ export function BackendConnectionTest() {
     error, 
     fetchQuestions, 
     fetchResponses, 
-    fetchAnalytics 
+    fetchAnalytics,
+    triggerAiProcessing 
   } = useBackendApi();
 
   const [testResults, setTestResults] = useState({
     questions: null as any,
     responses: null as any,
     analytics: null as any,
+    aiProcessing: null as any,
   });
 
   const testConnection = async () => {
@@ -51,6 +53,11 @@ export function BackendConnectionTest() {
     // Test analytics endpoint
     const analyticsResult = await fetchAnalytics();
     setTestResults(prev => ({ ...prev, analytics: analyticsResult }));
+  };
+
+  const testAiProcessing = async () => {
+    const aiResult = await triggerAiProcessing(5);
+    setTestResults(prev => ({ ...prev, aiProcessing: aiResult }));
   };
 
   useEffect(() => {
@@ -183,6 +190,69 @@ export function BackendConnectionTest() {
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI Processing Test */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI Processing Test</CardTitle>
+          <CardDescription>
+            Test AI transcription and summarization
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertDescription>
+              This will trigger AI processing for up to 5 unprocessed voice recordings.
+              The AI will transcribe audio and generate summaries.
+            </AlertDescription>
+          </Alert>
+
+          <Button 
+            onClick={testAiProcessing} 
+            disabled={loading || !healthStatus?.success}
+            className="w-full"
+            variant="secondary"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Trigger AI Processing'
+            )}
+          </Button>
+
+          {testResults.aiProcessing && (
+            <div className="space-y-2 pt-4 border-t">
+              <div className="flex items-center gap-2 text-sm">
+                {getStatusIcon(testResults.aiProcessing.success)}
+                <span>
+                  AI Processing: {testResults.aiProcessing.success ? 'Success' : 'Failed'}
+                </span>
+              </div>
+              {testResults.aiProcessing.success && testResults.aiProcessing.data && (
+                <Alert>
+                  <AlertDescription>
+                    <strong>Processed:</strong> {testResults.aiProcessing.data.processedCount || 0} recordings
+                    <br />
+                    <span className="text-xs text-muted-foreground">
+                      Check the Transcriptions page to see the results
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!testResults.aiProcessing.success && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {testResults.aiProcessing.error || 'AI processing failed'}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

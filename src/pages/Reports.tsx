@@ -103,7 +103,7 @@ ${(data.topQuestions || []).map((q: any, i: number) =>
 
     try {
       const [responsesResult, questionsResult] = await Promise.all([
-        fetchResponses({ page: 1, limit: 1000, includeAI: true }),
+        fetchResponses({ page: 1, limit: 100, includeAI: true }), // Reduced from 1000
         fetchQuestions()
       ]);
 

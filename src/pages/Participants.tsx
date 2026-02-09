@@ -43,11 +43,11 @@ export default function Participants() {
   const loadParticipants = async () => {
     const result = await fetchResponses({
       page: 1,
-      limit: 1000,
+      limit: 100, // Reduced from 1000 to avoid rate limiting
     });
 
-    if (result.success && result.data) {
-      const responses = result.data.responses || result.data;
+    if (result.success) {
+      const responses = (result as any).data?.responses || (result as any).data || [];
       
       if (Array.isArray(responses)) {
         // Group responses by phone number
