@@ -171,17 +171,56 @@ ${(data.topQuestions || []).map((q: any, i: number) =>
     });
 
     try {
+      console.log('Starting export, fetching data...');
+      
       const [responsesResult, questionsResult] = await Promise.all([
         fetchResponses({ page: 1, limit: 100, includeAI: true }),
         fetchQuestions()
       ]);
 
-      if (!responsesResult.success || !responsesResult.data) {
-        throw new Error('Failed to fetch data');
+      console.log('Responses result:', responsesResult);
+      console.log('Questions result:', questionsResult);
+
+      // Check if responses fetch failed
+      if (!responsesResult.success) {
+        throw new Error(responsesResult.error || 'Failed to fetch responses');
       }
 
-      const responses = responsesResult.data.responses || responsesResult.data;
-      const questions = questionsResult.data?.questions || [];
+      // Handle different response formats
+      let responses = [];
+      if (responsesResult.responses) {
+        // Direct responses array (backend format: { success: true, responses: [...] })
+        responses = responsesResult.responses;
+      } else if (responsesResult.data) {
+        if (Array.isArray(responsesResult.data)) {
+          responses = responsesResult.data;
+        } else if (responsesResult.data.responses) {
+          responses = responsesResult.data.responses;
+        } else if (Array.isArray(responsesResult.data.data)) {
+          responses = responsesResult.data.data;
+        }
+      }
+
+      // Get questions
+      let questions = [];
+      if (questionsResult.success && questionsResult.data) {
+        if (Array.isArray(questionsResult.data)) {
+          questions = questionsResult.data;
+        } else if (questionsResult.data.questions) {
+          questions = questionsResult.data.questions;
+        }
+      }
+
+      console.log(`Found ${responses.length} responses and ${questions.length} questions`);
+
+      if (responses.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No responses found to export",
+          variant: "destructive",
+        });
+        return;
+      }
 
       switch (format) {
         case 'csv':
@@ -205,6 +244,7 @@ ${(data.topQuestions || []).map((q: any, i: number) =>
         description: `Data exported as ${format.toUpperCase()} successfully`,
       });
     } catch (err: any) {
+      console.error('Export error:', err);
       toast({
         title: "Export Failed",
         description: err.message || "Failed to export data",
