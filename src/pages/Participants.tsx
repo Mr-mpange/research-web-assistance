@@ -43,13 +43,26 @@ export default function Participants() {
   const loadParticipants = async () => {
     const result = await fetchResponses({
       page: 1,
-      limit: 100, // Reduced from 1000 to avoid rate limiting
-    });
+      limit: 100,
+      _t: Date.now() // Cache busting
+    } as any);
 
     if (result.success) {
-      const responses = (result as any).data?.responses || (result as any).data || [];
+      // Handle different response formats
+      let responses = [];
       
-      if (Array.isArray(responses)) {
+      if ((result as any).responses) {
+        // Format: { success: true, responses: [...] }
+        responses = (result as any).responses;
+      } else if ((result as any).data?.responses) {
+        // Format: { success: true, data: { responses: [...] } }
+        responses = (result as any).data.responses;
+      } else if ((result as any).data && Array.isArray((result as any).data)) {
+        // Format: { success: true, data: [...] }
+        responses = (result as any).data;
+      }
+      
+      if (Array.isArray(responses) && responses.length > 0) {
         // Group responses by phone number
         const participantMap = new Map<string, Participant>();
         
@@ -79,7 +92,13 @@ export default function Participants() {
         });
         
         setParticipants(Array.from(participantMap.values()));
+      } else {
+        console.log('No responses found or invalid format:', result);
+        setParticipants([]);
       }
+    } else {
+      console.error('Failed to fetch responses:', result);
+      setParticipants([]);
     }
   };
 
