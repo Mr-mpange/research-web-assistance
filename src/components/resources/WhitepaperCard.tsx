@@ -2,8 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { API_BASE_URL } from "@/config/api";
 
 interface Whitepaper {
   title: string;
@@ -22,29 +22,29 @@ export function WhitepaperCard({ paper }: WhitepaperCardProps) {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      // Check if file exists in storage
-      const { data: files, error: listError } = await supabase.storage
-        .from("whitepapers")
-        .list("", { search: paper.filename });
+      // Request whitepaper download from backend
+      const response = await fetch(`${API_BASE_URL}/api/whitepapers/${encodeURIComponent(paper.filename)}`, {
+        method: 'GET',
+      });
 
-      if (listError) throw listError;
-
-      const fileExists = files?.some(f => f.name === paper.filename);
-
-      if (!fileExists) {
+      if (response.status === 404) {
         toast.info(`"${paper.title}" will be available for download soon. Contact us for early access.`);
         return;
       }
 
-      // Get public URL and download
-      const { data } = supabase.storage
-        .from("whitepapers")
-        .getPublicUrl(paper.filename);
+      if (!response.ok) {
+        throw new Error('Failed to download whitepaper');
+      }
 
-      if (data?.publicUrl) {
+      // Get the download URL from response
+      const data = await response.json();
+      
+      if (data.downloadUrl) {
         // Open in new tab to trigger download
-        window.open(data.publicUrl, "_blank");
+        window.open(data.downloadUrl, "_blank");
         toast.success("Download started!");
+      } else {
+        toast.info(`"${paper.title}" will be available for download soon. Contact us for early access.`);
       }
     } catch (error: any) {
       console.error("Download error:", error);

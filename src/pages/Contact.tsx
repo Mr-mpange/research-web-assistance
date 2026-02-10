@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { FadeInSection } from "@/components/public/FadeInSection";
 import { Mail, MapPin, Phone, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { API_BASE_URL } from "@/config/api";
 
 const planMessages: Record<string, string> = {
   academic: "I'm interested in the Academic plan for my university research project.",
@@ -40,11 +40,20 @@ export default function Contact() {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: formData,
+      // Send contact form to backend
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message');
+      }
 
       toast.success("Thank you for your message. We'll be in touch soon.");
       setFormData({ name: "", email: "", organization: "", message: "" });

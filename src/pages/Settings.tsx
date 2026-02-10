@@ -7,8 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { API_BASE_URL } from "@/config/api";
 import {
   Select,
   SelectContent,
@@ -25,30 +25,28 @@ import {
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user, profile: userProfile } = useAuth();
+  const { user, token } = useAuth();
   const { isAdmin } = useAdminRole();
   const [activeTab, setActiveTab] = useState("profile");
   const [saving, setSaving] = useState(false);
   
   // Profile state - initialize from auth context
   const [profile, setProfile] = useState({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     email: "",
-    organization: "",
+    username: "",
   });
 
   // Load user data from auth context
   useEffect(() => {
-    if (user && userProfile) {
+    if (user) {
       setProfile({
-        firstName: userProfile.first_name || "",
-        lastName: userProfile.last_name || "",
+        fullName: user.full_name || "",
         email: user.email || "",
-        organization: userProfile.organization || "",
+        username: user.username || "",
       });
     }
-  }, [user, userProfile]);
+  }, [user]);
 
   // Notification state
   const [notifications, setNotifications] = useState({
@@ -65,7 +63,7 @@ export default function Settings() {
   });
 
   const handleSaveProfile = async () => {
-    if (!user || !userProfile) {
+    if (!user || !token) {
       toast({
         title: "Error",
         description: "User not authenticated",
@@ -76,18 +74,23 @@ export default function Settings() {
 
     setSaving(true);
     try {
-      // Update profile in Supabase
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          first_name: profile.firstName,
-          last_name: profile.lastName,
-          organization: profile.organization,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id);
+      // Update profile via backend API
+      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          full_name: profile.fullName,
+        }),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile');
+      }
 
       toast({
         title: "Success",
@@ -179,24 +182,28 @@ export default function Settings() {
             <p className="mb-4 text-xs text-muted-foreground">
               Update your personal details
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="firstName"
-                  value={profile.firstName}
-                  onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+                  id="username"
+                  value={profile.username}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Username cannot be changed.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  value={profile.fullName}
+                  onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={profile.lastName}
-                  onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
@@ -208,14 +215,6 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">
                   Email cannot be changed here. Contact support to update your email.
                 </p>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="organization">Organization</Label>
-                <Input
-                  id="organization"
-                  value={profile.organization}
-                  onChange={(e) => setProfile({ ...profile, organization: e.target.value })}
-                />
               </div>
             </div>
             <div className="mt-4 flex justify-end">

@@ -20,6 +20,11 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Get token from localStorage
+const getToken = (): string | null => {
+  return localStorage.getItem('auth_token');
+};
+
 // Generic API request handler
 async function apiRequest<T>(
   endpoint: string,
@@ -29,8 +34,15 @@ async function apiRequest<T>(
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
+    const token = getToken();
+    const headers = {
+      ...getHeaders(token || undefined),
+      ...(options.headers || {}),
+    };
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      headers,
       signal: controller.signal,
     });
 
@@ -77,12 +89,11 @@ export const healthCheck = async () => {
   return apiRequest(API_ENDPOINTS.health);
 };
 
-// Authentication
+// Authentication (no token needed for these)
 export const authService = {
   login: async (username: string, password: string) => {
     return apiRequest(API_ENDPOINTS.auth.login, {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify({ username, password }),
     });
   },
@@ -90,7 +101,6 @@ export const authService = {
   register: async (userData: any) => {
     return apiRequest(API_ENDPOINTS.auth.register, {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify(userData),
     });
   },
@@ -98,7 +108,7 @@ export const authService = {
 
 // Research Questions
 export const questionsService = {
-  list: async (params?: { language?: string; category?: string; active?: boolean }, token?: string) => {
+  list: async (params?: { language?: string; category?: string; active?: boolean }) => {
     const queryParams = new URLSearchParams();
     if (params?.language) queryParams.append('language', params.language);
     if (params?.category) queryParams.append('category', params.category);
@@ -107,31 +117,26 @@ export const questionsService = {
     const query = queryParams.toString();
     const endpoint = query ? `${API_ENDPOINTS.questions.list}?${query}` : API_ENDPOINTS.questions.list;
 
-    return apiRequest(endpoint, {
-      headers: getHeaders(token),
-    });
+    return apiRequest(endpoint);
   },
 
-  create: async (questionData: any, token: string) => {
+  create: async (questionData: any) => {
     return apiRequest(API_ENDPOINTS.questions.create, {
       method: 'POST',
-      headers: getHeaders(token),
       body: JSON.stringify(questionData),
     });
   },
 
-  update: async (id: string, questionData: any, token: string) => {
+  update: async (id: string, questionData: any) => {
     return apiRequest(API_ENDPOINTS.questions.update(id), {
       method: 'PUT',
-      headers: getHeaders(token),
       body: JSON.stringify(questionData),
     });
   },
 
-  delete: async (id: string, token: string) => {
+  delete: async (id: string) => {
     return apiRequest(API_ENDPOINTS.questions.delete(id), {
       method: 'DELETE',
-      headers: getHeaders(token),
     });
   },
 };
@@ -144,8 +149,7 @@ export const responsesService = {
       limit?: number;
       type?: 'ussd' | 'voice';
       includeAI?: boolean;
-    },
-    token?: string
+    }
   ) => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', String(params.page));
@@ -156,21 +160,15 @@ export const responsesService = {
     const query = queryParams.toString();
     const endpoint = query ? `${API_ENDPOINTS.responses.list}?${query}` : API_ENDPOINTS.responses.list;
 
-    return apiRequest(endpoint, {
-      headers: getHeaders(token),
-    });
+    return apiRequest(endpoint);
   },
 
-  single: async (id: string, token: string) => {
-    return apiRequest(API_ENDPOINTS.responses.single(id), {
-      headers: getHeaders(token),
-    });
+  single: async (id: string) => {
+    return apiRequest(API_ENDPOINTS.responses.single(id));
   },
 
-  export: async (format: 'csv' | 'json', token: string) => {
-    return apiRequest(`${API_ENDPOINTS.responses.export}?format=${format}`, {
-      headers: getHeaders(token),
-    });
+  export: async (format: 'csv' | 'json') => {
+    return apiRequest(`${API_ENDPOINTS.responses.export}?format=${format}`);
   },
 };
 
@@ -181,8 +179,7 @@ export const analyticsService = {
       startDate?: string;
       endDate?: string;
       granularity?: 'day' | 'week' | 'month';
-    },
-    token?: string
+    }
   ) => {
     const queryParams = new URLSearchParams();
     if (params?.startDate) queryParams.append('startDate', params.startDate);
@@ -192,51 +189,42 @@ export const analyticsService = {
     const query = queryParams.toString();
     const endpoint = query ? `${API_ENDPOINTS.analytics.summary}?${query}` : API_ENDPOINTS.analytics.summary;
 
-    return apiRequest(endpoint, {
-      headers: getHeaders(token),
-    });
+    return apiRequest(endpoint);
   },
 };
 
 // AI Processing
 export const aiService = {
-  process: async (limit?: number, token?: string) => {
+  process: async (limit?: number) => {
     const endpoint = limit ? `${API_ENDPOINTS.ai.process}?limit=${limit}` : API_ENDPOINTS.ai.process;
     
     return apiRequest(endpoint, {
       method: 'POST',
-      headers: getHeaders(token),
     });
   },
 
-  status: async (token?: string) => {
-    return apiRequest(API_ENDPOINTS.ai.status, {
-      headers: getHeaders(token),
-    });
+  status: async () => {
+    return apiRequest(API_ENDPOINTS.ai.status);
   },
 };
 
 // SMS Service
 export const smsService = {
-  sendThankYou: async (data: { phoneNumber: string; language: string; questionTitle: string }, token: string) => {
+  sendThankYou: async (data: { phoneNumber: string; language: string; questionTitle: string }) => {
     return apiRequest(API_ENDPOINTS.sms.thankYou, {
       method: 'POST',
-      headers: getHeaders(token),
       body: JSON.stringify(data),
     });
   },
 
-  sendInvite: async (data: { phoneNumber: string; language: string; researchTitle: string }, token: string) => {
+  sendInvite: async (data: { phoneNumber: string; language: string; researchTitle: string }) => {
     return apiRequest(API_ENDPOINTS.sms.invite, {
       method: 'POST',
-      headers: getHeaders(token),
       body: JSON.stringify(data),
     });
   },
 
-  statistics: async (token: string) => {
-    return apiRequest(API_ENDPOINTS.sms.statistics, {
-      headers: getHeaders(token),
-    });
+  statistics: async () => {
+    return apiRequest(API_ENDPOINTS.sms.statistics);
   },
 };

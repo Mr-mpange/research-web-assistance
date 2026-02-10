@@ -56,11 +56,11 @@ fetch('https://research-system-864580156744.us-central1.run.app/health')
 ## Environment Setup
 
 The `.env` file is already configured with:
-- Supabase credentials (for auth & database)
 - Backend API URL (Google Cloud Run)
 
 ```env
-VITE_SUPABASE_URL="https://cgfsbezhsmmoliegebnm.supabase.co"
+VITE_API_BASE_URL="https://research-system-864580156744.us-central1.run.app"
+```E_SUPABASE_URL="https://cgfsbezhsmmoliegebnm.supabase.co"
 VITE_API_BASE_URL="https://research-system-864580156744.us-central1.run.app"
 ```
 

@@ -15,11 +15,9 @@ export const useBackendApi = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get auth token (you may need to adjust this based on your auth implementation)
+  // Get auth token from localStorage
   const getToken = useCallback(() => {
-    // If using Supabase auth, get the token from session
-    // Otherwise, get from localStorage or your auth context
-    return localStorage.getItem('backend_token') || '';
+    return localStorage.getItem('auth_token') || '';
   }, []);
 
   // Health check

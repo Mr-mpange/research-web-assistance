@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Loader2, CheckCircle, ArrowRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { API_BASE_URL } from "@/config/api";
 
 export function NewsletterSignup() {
   const [email, setEmail] = useState("");
@@ -16,15 +16,21 @@ export function NewsletterSignup() {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("newsletter_subscribers")
-        .insert({ email: email.trim() });
+      const response = await fetch(`${API_BASE_URL}/api/newsletter/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim() }),
+      });
 
-      if (error) {
-        if (error.code === "23505") {
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 409) {
           toast.info("You're already subscribed to our newsletter!");
         } else {
-          throw error;
+          throw new Error(data.error || 'Failed to subscribe');
         }
       } else {
         setSubscribed(true);

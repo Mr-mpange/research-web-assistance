@@ -5,19 +5,18 @@
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
  import { Label } from "@/components/ui/label";
- import { Loader2, Mail, Lock, User, Building } from "lucide-react";
+ import { Loader2, Lock, User } from "lucide-react";
  
  const loginSchema = z.object({
-   email: z.string().email("Please enter a valid email address"),
+   username: z.string().min(3, "Username must be at least 3 characters"),
    password: z.string().min(6, "Password must be at least 6 characters"),
  });
  
  const signupSchema = z.object({
+   username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username is too long"),
    email: z.string().email("Please enter a valid email address"),
    password: z.string().min(6, "Password must be at least 6 characters"),
-   firstName: z.string().min(1, "First name is required").max(50, "First name is too long"),
-   lastName: z.string().min(1, "Last name is required").max(50, "Last name is too long"),
-   organization: z.string().max(100, "Organization name is too long").optional(),
+   fullName: z.string().min(1, "Full name is required").max(255, "Full name is too long"),
  });
  
  export default function Auth() {
@@ -26,11 +25,10 @@
    const [error, setError] = useState<string | null>(null);
    const [successMessage, setSuccessMessage] = useState<string | null>(null);
    const [formData, setFormData] = useState({
+     username: "",
      email: "",
      password: "",
-     firstName: "",
-     lastName: "",
-     organization: "",
+     fullName: "",
    });
    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
  
@@ -54,59 +52,57 @@
      try {
        if (isLogin) {
          const validatedData = loginSchema.parse({
-           email: formData.email,
+           username: formData.username,
            password: formData.password,
          });
  
          setLoading(true);
-         const { error } = await signIn(validatedData.email, validatedData.password);
+         const { error } = await signIn(validatedData.username, validatedData.password);
  
          if (error) {
-           if (error.message.includes("Invalid login credentials")) {
-             setError("Invalid email or password. Please try again.");
-           } else if (error.message.includes("Email not confirmed")) {
-             setError("Please verify your email address before signing in.");
+           if (error.message.includes("Invalid credentials")) {
+             setError("Invalid username or password. Please try again.");
+           } else if (error.message.includes("deactivated")) {
+             setError("Your account has been deactivated. Please contact support.");
            } else {
-           setError(error.message);
+             setError(error.message);
            }
          } else {
            navigate("/dashboard");
          }
        } else {
          const validatedData = signupSchema.parse({
+           username: formData.username,
            email: formData.email,
            password: formData.password,
-           firstName: formData.firstName,
-           lastName: formData.lastName,
-           organization: formData.organization || undefined,
+           fullName: formData.fullName,
          });
  
          setLoading(true);
          const { error } = await signUp(
+           validatedData.username,
            validatedData.email,
            validatedData.password,
-           validatedData.firstName,
-           validatedData.lastName,
-           validatedData.organization
+           validatedData.fullName
          );
  
          if (error) {
-           if (error.message.includes("already registered")) {
-             setError("This email is already registered. Please sign in instead.");
+           if (error.message.includes("already exists")) {
+             setError("This username or email is already registered. Please sign in instead.");
            } else {
              setError(error.message);
            }
          } else {
            setSuccessMessage(
-             "Account created! Please check your email to verify your account before signing in."
+             "Account created successfully! You can now sign in."
            );
            setFormData({
+             username: "",
              email: "",
              password: "",
-             firstName: "",
-             lastName: "",
-             organization: "",
+             fullName: "",
            });
+           setIsLogin(true);
          }
        }
      } catch (err) {
@@ -160,82 +156,63 @@
                </div>
              )}
  
-             {!isLogin && (
-               <>
-                 <div className="grid gap-4 sm:grid-cols-2">
-                   <div className="space-y-2">
-                     <Label htmlFor="firstName">First Name</Label>
-                     <div className="relative">
-                       <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                       <Input
-                         id="firstName"
-                         name="firstName"
-                         placeholder="Amina"
-                         value={formData.firstName}
-                         onChange={handleInputChange}
-                         className="pl-9"
-                       />
-                     </div>
-                     {fieldErrors.firstName && (
-                       <p className="text-xs text-destructive">{fieldErrors.firstName}</p>
-                     )}
-                   </div>
-                   <div className="space-y-2">
-                     <Label htmlFor="lastName">Last Name</Label>
-                     <div className="relative">
-                       <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                       <Input
-                         id="lastName"
-                         name="lastName"
-                         placeholder="Osei"
-                         value={formData.lastName}
-                         onChange={handleInputChange}
-                         className="pl-9"
-                       />
-                     </div>
-                     {fieldErrors.lastName && (
-                       <p className="text-xs text-destructive">{fieldErrors.lastName}</p>
-                     )}
-                   </div>
-                 </div>
-                 <div className="space-y-2">
-                   <Label htmlFor="organization">Organization (Optional)</Label>
-                   <div className="relative">
-                     <Building className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                     <Input
-                       id="organization"
-                       name="organization"
-                       placeholder="University of Nairobi"
-                       value={formData.organization}
-                       onChange={handleInputChange}
-                       className="pl-9"
-                     />
-                   </div>
-                   {fieldErrors.organization && (
-                     <p className="text-xs text-destructive">{fieldErrors.organization}</p>
-                   )}
-                 </div>
-               </>
-             )}
- 
              <div className="space-y-2">
-               <Label htmlFor="email">Email Address</Label>
+               <Label htmlFor="username">Username</Label>
                <div className="relative">
-                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                  <Input
-                   id="email"
-                   name="email"
-                   type="email"
-                   placeholder="you@example.com"
-                   value={formData.email}
+                   id="username"
+                   name="username"
+                   placeholder="johndoe"
+                   value={formData.username}
                    onChange={handleInputChange}
                    className="pl-9"
                  />
                </div>
-               {fieldErrors.email && (
-                 <p className="text-xs text-destructive">{fieldErrors.email}</p>
+               {fieldErrors.username && (
+                 <p className="text-xs text-destructive">{fieldErrors.username}</p>
                )}
              </div>
+
+             {!isLogin && (
+               <>
+                 <div className="space-y-2">
+                   <Label htmlFor="email">Email Address</Label>
+                   <div className="relative">
+                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                     <Input
+                       id="email"
+                       name="email"
+                       type="email"
+                       placeholder="you@example.com"
+                       value={formData.email}
+                       onChange={handleInputChange}
+                       className="pl-9"
+                     />
+                   </div>
+                   {fieldErrors.email && (
+                     <p className="text-xs text-destructive">{fieldErrors.email}</p>
+                   )}
+                 </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="fullName">Full Name</Label>
+                   <div className="relative">
+                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                     <Input
+                       id="fullName"
+                       name="fullName"
+                       placeholder="John Doe"
+                       value={formData.fullName}
+                       onChange={handleInputChange}
+                       className="pl-9"
+                     />
+                   </div>
+                   {fieldErrors.fullName && (
+                     <p className="text-xs text-destructive">{fieldErrors.fullName}</p>
+                   )}
+                 </div>
+               </>
+             )}
  
              <div className="space-y-2">
                <Label htmlFor="password">Password</Label>
