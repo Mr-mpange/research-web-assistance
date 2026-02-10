@@ -35,6 +35,8 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import AISummaryTest from "./pages/AISummaryTest";
+import SMSManagement from "./pages/SMSManagement";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +87,7 @@ const queryClient = new QueryClient();
               <Route path="/participants" element={<Participants />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/sms" element={<SMSManagement />} />
               <Route path="/ai-test" element={<AISummaryTest />} />
             </Route>
             
@@ -98,6 +101,19 @@ const queryClient = new QueryClient();
               }
             >
               <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<UserManagement />} />
+            </Route>
+            
+            {/* Admin-only User Management */}
+            <Route
+              path="/users"
+              element={
+                <AdminRoute>
+                  <DashboardLayout />
+                </AdminRoute>
+              }
+            >
+              <Route index element={<UserManagement />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

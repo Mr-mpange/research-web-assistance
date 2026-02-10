@@ -16,7 +16,7 @@ interface TopNavProps {
 }
 
  export function TopNav({ onToggleSidebar }: TopNavProps) {
-   const { profile, signOut } = useAuth();
+   const { user, signOut } = useAuth();
    const navigate = useNavigate();
  
    const handleSignOut = async () => {
@@ -24,10 +24,8 @@ interface TopNavProps {
      navigate("/auth");
    };
  
-   const displayName = profile?.first_name && profile?.last_name
-     ? `${profile.first_name} ${profile.last_name}`
-     : "Researcher";
-   const role = profile?.role || "Researcher";
+   const displayName = user?.full_name || user?.username || "User";
+   const role = user?.role || "researcher";
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-card px-4 lg:px-6">
       <Button

@@ -21,6 +21,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  profile: User | null; // Alias for backward compatibility
   token: string | null;
   loading: boolean;
   signIn: (username: string, password: string) => Promise<{ error: Error | null }>;
@@ -178,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        profile: user, // Alias for backward compatibility
         token,
         loading,
         signIn,
