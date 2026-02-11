@@ -83,10 +83,18 @@ export default function UserManagement() {
   const activeUsers = users.filter(u => u.status === 'active');
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (token) {
+      fetchUsers();
+    }
+  }, [token]);
 
   const fetchUsers = async () => {
+    if (!token) {
+      console.warn('No token available, skipping fetch');
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/users`, {
@@ -377,6 +385,27 @@ export default function UserManagement() {
       description: "Deactivated accounts",
     },
   ];
+
+  // Show login prompt if no token
+  if (!token) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>
+              Please log in to access User Management
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <a href="/auth">Go to Login</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
