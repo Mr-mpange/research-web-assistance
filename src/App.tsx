@@ -23,7 +23,6 @@ import CaseStudies from "./pages/CaseStudies";
 import Pricing from "./pages/Pricing";
 import Resources from "./pages/Resources";
 import Auth from "./pages/Auth";
-import BackendTest from "./pages/BackendTest";
 
 // Dashboard pages
 import DashboardOverview from "./pages/DashboardOverview";
@@ -34,7 +33,6 @@ import Participants from "./pages/Participants";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
-import AISummaryTest from "./pages/AISummaryTest";
 import SMSManagement from "./pages/SMSManagement";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
@@ -67,7 +65,6 @@ const queryClient = new QueryClient();
                 <Route path="/case-studies" element={<CaseStudies />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/resources" element={<Resources />} />
-                <Route path="/backend-test" element={<BackendTest />} />
               </Route>
              <Route path="/auth" element={<Auth />} />
  
@@ -88,7 +85,6 @@ const queryClient = new QueryClient();
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/sms" element={<SMSManagement />} />
-              <Route path="/ai-test" element={<AISummaryTest />} />
             </Route>
             
             {/* Admin Routes */}
