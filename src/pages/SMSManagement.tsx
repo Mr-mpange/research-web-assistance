@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageSquare, Send, Users, CheckCircle, TrendingUp, TrendingDown, Filter, Search, X } from "lucide-react";
+import { MessageSquare, Send, Users, CheckCircle, TrendingUp, TrendingDown, Filter, Search, X, UserCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/config/api";
@@ -29,6 +31,12 @@ interface RecentActivity {
   response_text: string;
 }
 
+interface Participant {
+  phone_number: string;
+  last_response: string;
+  response_count: number;
+}
+
 export default function SMSManagement() {
   const { user, token } = useAuth();
   const { toast } = useToast();
@@ -44,11 +52,24 @@ export default function SMSManagement() {
   const [filterSearch, setFilterSearch] = useState("");
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
 
+  // Bulk SMS states
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [participantSearch, setParticipantSearch] = useState("");
+
   useEffect(() => {
     if (token) {
       fetchStatistics();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (recentActivity.length > 0) {
+      fetchParticipants();
+    }
+  }, [recentActivity]);
 
   const fetchStatistics = async () => {
     setLoading(true);
@@ -75,6 +96,41 @@ export default function SMSManagement() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchParticipants = async () => {
+    setLoadingParticipants(true);
+    try {
+      // Extract unique participants from recent activity
+      const uniquePhones = Array.from(new Set(recentActivity.map(a => a.phone_number)));
+      
+      // Create participant objects with stats
+      const participantMap = new Map<string, Participant>();
+      
+      recentActivity.forEach(activity => {
+        if (!participantMap.has(activity.phone_number)) {
+          participantMap.set(activity.phone_number, {
+            phone_number: activity.phone_number,
+            last_response: activity.created_at,
+            response_count: 1
+          });
+        } else {
+          const existing = participantMap.get(activity.phone_number)!;
+          existing.response_count++;
+          // Keep the most recent response date
+          if (new Date(activity.created_at) > new Date(existing.last_response)) {
+            existing.last_response = activity.created_at;
+          }
+        }
+      });
+
+      setParticipants(Array.from(participantMap.values()));
+    } catch (error) {
+      console.error('Fetch participants error:', error);
+      setParticipants([]);
+    } finally {
+      setLoadingParticipants(false);
     }
   };
 
@@ -135,8 +191,22 @@ export default function SMSManagement() {
 
     setSending(true);
     try {
-      // TODO: Implement actual SMS sending via API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`${API_BASE_URL}/sms/thank-you`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          phoneNumber,
+          message,
+          language: 'en'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send SMS');
+      }
       
       toast({
         title: "Success",
@@ -145,16 +215,96 @@ export default function SMSManagement() {
       
       setPhoneNumber("");
       setMessage("");
-    } catch (error) {
+      fetchStatistics(); // Refresh stats
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to send SMS",
+        description: error.message || "Failed to send SMS",
         variant: "destructive",
       });
     } finally {
       setSending(false);
     }
   };
+
+  const handleSendBulkSMS = async () => {
+    if (selectedParticipants.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one participant",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!bulkMessage) {
+      toast({
+        title: "Error",
+        description: "Please enter a message",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSending(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/sms/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          phoneNumbers: selectedParticipants,
+          message: bulkMessage,
+          language: 'en'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send bulk SMS');
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Success",
+        description: `Bulk SMS sent to ${selectedParticipants.length} participant${selectedParticipants.length !== 1 ? 's' : ''}!`,
+      });
+      
+      setSelectedParticipants([]);
+      setBulkMessage("");
+      fetchStatistics(); // Refresh stats
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send bulk SMS",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const toggleParticipant = (phoneNumber: string) => {
+    setSelectedParticipants(prev =>
+      prev.includes(phoneNumber)
+        ? prev.filter(p => p !== phoneNumber)
+        : [...prev, phoneNumber]
+    );
+  };
+
+  const toggleAllParticipants = () => {
+    if (selectedParticipants.length === filteredParticipants.length) {
+      setSelectedParticipants([]);
+    } else {
+      setSelectedParticipants(filteredParticipants.map(p => p.phone_number));
+    }
+  };
+
+  const filteredParticipants = participants.filter(p =>
+    p.phone_number.toLowerCase().includes(participantSearch.toLowerCase())
+  );
 
   const statsCards = [
     {
@@ -217,47 +367,151 @@ export default function SMSManagement() {
             Send SMS
           </CardTitle>
           <CardDescription>
-            Send SMS to participants or bulk messaging
+            Send SMS to individual participant or bulk messaging
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              placeholder="+254712345678"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
-          </div>
+        <CardContent>
+          <Tabs defaultValue="single" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single">Single SMS</TabsTrigger>
+              <TabsTrigger value="bulk">Bulk SMS</TabsTrigger>
+            </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
-            <Textarea
-              id="message"
-              placeholder="Enter your message here..."
-              rows={5}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              maxLength={160}
-            />
-            <p className="text-xs text-muted-foreground">
-              {message.length}/160 characters
-            </p>
-          </div>
+            {/* Single SMS Tab */}
+            <TabsContent value="single" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  placeholder="+254712345678"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleSendSMS} disabled={sending}>
-              <Send className="mr-2 h-4 w-4" />
-              {sending ? "Sending..." : "Send SMS"}
-            </Button>
-            {user?.role === 'admin' && (
-              <Button variant="outline">
-                <Users className="mr-2 h-4 w-4" />
-                Send Bulk SMS
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  placeholder="Enter your message here..."
+                  rows={5}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  maxLength={160}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {message.length}/160 characters
+                </p>
+              </div>
+
+              <Button onClick={handleSendSMS} disabled={sending}>
+                <Send className="mr-2 h-4 w-4" />
+                {sending ? "Sending..." : "Send SMS"}
               </Button>
-            )}
-          </div>
+            </TabsContent>
+
+            {/* Bulk SMS Tab */}
+            <TabsContent value="bulk" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="bulkMessage">Message</Label>
+                <Textarea
+                  id="bulkMessage"
+                  placeholder="Enter your bulk message here..."
+                  rows={5}
+                  value={bulkMessage}
+                  onChange={(e) => setBulkMessage(e.target.value)}
+                  maxLength={160}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {bulkMessage.length}/160 characters
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Select Recipients</Label>
+                  <Badge variant="secondary">
+                    {selectedParticipants.length} selected
+                  </Badge>
+                </div>
+
+                {/* Search participants */}
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search participants..."
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Select all checkbox */}
+                {filteredParticipants.length > 0 && (
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-md">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedParticipants.length === filteredParticipants.length && filteredParticipants.length > 0}
+                      onCheckedChange={toggleAllParticipants}
+                    />
+                    <label
+                      htmlFor="select-all"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Select all ({filteredParticipants.length})
+                    </label>
+                  </div>
+                )}
+
+                {/* Participants list */}
+                <div className="border rounded-lg max-h-[300px] overflow-y-auto">
+                  {loadingParticipants ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-muted-foreground">Loading participants...</div>
+                    </div>
+                  ) : filteredParticipants.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <Users className="h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {participantSearch ? 'No participants found' : 'No participants available'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredParticipants.map((participant) => (
+                        <div
+                          key={participant.phone_number}
+                          className="flex items-center space-x-3 p-3 hover:bg-accent/50 cursor-pointer"
+                          onClick={() => toggleParticipant(participant.phone_number)}
+                        >
+                          <Checkbox
+                            checked={selectedParticipants.includes(participant.phone_number)}
+                            onCheckedChange={() => toggleParticipant(participant.phone_number)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{participant.phone_number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {participant.response_count} response{participant.response_count !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                          <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleSendBulkSMS} 
+                disabled={sending || selectedParticipants.length === 0}
+                className="w-full"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {sending ? "Sending..." : `Send to ${selectedParticipants.length} Participant${selectedParticipants.length !== 1 ? 's' : ''}`}
+              </Button>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
