@@ -20,6 +20,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useBackendApi } from "@/hooks/useBackendApi";
 import { format } from "date-fns";
+import { API_BASE_URL } from "@/config/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface User {
   id: string;
@@ -43,6 +45,7 @@ export default function AdminDashboard() {
   });
   const { toast } = useToast();
   const { fetchAnalytics } = useBackendApi();
+  const { token } = useAuth();
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,32 +55,37 @@ export default function AdminDashboard() {
       if (analyticsResult.success && (analyticsResult as any).data) {
         const data = (analyticsResult as any).data.analytics;
         setStats({
-          totalUsers: 0, // Backend doesn't expose user count
+          totalUsers: 0, // Will be updated from users fetch
           totalQuestions: parseInt(data.responseStats?.questions_answered || 0),
           totalResponses: parseInt(data.responseStats?.total_responses || 0),
           totalParticipants: parseInt(data.responseStats?.unique_participants || 0),
         });
       }
 
-      // Mock users data (since backend doesn't have user management endpoint)
-      setUsers([
-        {
-          id: "1",
-          username: "admin",
-          email: "admin@research.com",
-          full_name: "System Administrator",
-          role: "admin",
-          is_active: true,
-          created_at: new Date().toISOString(),
+      // Fetch real users from API
+      const usersResponse = await fetch(`${API_BASE_URL}/api/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
         },
-      ]);
+      });
+
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        const usersList = Array.isArray(usersData) ? usersData : usersData.users || [];
+        setUsers(usersList);
+        setStats(prev => ({ ...prev, totalUsers: usersList.length }));
+      } else {
+        throw new Error('Failed to fetch users');
+      }
     } catch (error: any) {
       console.error("Error fetching data:", error);
       toast({
         title: "Error",
-        description: "Failed to load admin data",
+        description: error.message || "Failed to load admin data",
         variant: "destructive",
       });
+      // Set empty array on error
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -102,6 +110,16 @@ export default function AdminDashboard() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">Registered accounts</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Responses</CardTitle>
@@ -130,16 +148,6 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-success">{stats.totalParticipants}</div>
             <p className="text-xs text-muted-foreground">Unique participants</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">System Status</CardTitle>
-            <Activity className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">Online</div>
-            <p className="text-xs text-muted-foreground">All systems operational</p>
           </CardContent>
         </Card>
       </div>

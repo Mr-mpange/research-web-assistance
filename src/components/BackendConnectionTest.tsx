@@ -135,7 +135,7 @@ export function BackendConnectionTest() {
             <AlertDescription>
               <strong>Backend URL:</strong>{' '}
               <code className="text-xs">
-                https://research-system-864580156744.us-central1.run.app
+                {API_BASE_URL}
               </code>
             </AlertDescription>
           </Alert>
