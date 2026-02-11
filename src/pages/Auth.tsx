@@ -64,6 +64,12 @@
              setError("Invalid username or password. Please try again.");
            } else if (error.message.includes("deactivated")) {
              setError("Your account has been deactivated. Please contact support.");
+           } else if (error.message.includes("pending approval") || error.message.includes("Account pending")) {
+             setError("Your account is pending admin approval. You will be notified once approved.");
+           } else if (error.message.includes("rejected") || error.message.includes("not approved")) {
+             setError("Your account registration was not approved. Please contact support for more information.");
+           } else if (error.message.includes("inactive")) {
+             setError("Your account has been deactivated. Please contact support.");
            } else {
              setError(error.message);
            }
@@ -94,7 +100,7 @@
            }
          } else {
            setSuccessMessage(
-             "Account created successfully! You can now sign in."
+             "Account created successfully! Your account is pending admin approval. You will be notified once approved and can then sign in."
            );
            setFormData({
              username: "",
@@ -102,7 +108,7 @@
              password: "",
              fullName: "",
            });
-           setIsLogin(true);
+           // Don't auto-switch to login since they can't login yet
          }
        }
      } catch (err) {

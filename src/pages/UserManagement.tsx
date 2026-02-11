@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -49,8 +50,13 @@ interface User {
   email: string;
   full_name: string;
   role: 'admin' | 'researcher' | 'viewer';
+  status: 'pending' | 'active' | 'inactive' | 'rejected';
   is_active: boolean;
+  approval_date?: string;
+  approved_by?: string;
+  rejection_reason?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export default function UserManagement() {
@@ -61,6 +67,9 @@ export default function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectUserId, setRejectUserId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   
   const [newUser, setNewUser] = useState({
     username: "",
@@ -69,6 +78,9 @@ export default function UserManagement() {
     full_name: "",
     role: "researcher" as 'admin' | 'researcher' | 'viewer',
   });
+
+  const pendingUsers = users.filter(u => u.status === 'pending');
+  const activeUsers = users.filter(u => u.status === 'active');
 
   useEffect(() => {
     fetchUsers();
@@ -245,6 +257,99 @@ export default function UserManagement() {
     }
   };
 
+  const handleApproveUser = async (userId: string, username: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve user');
+      }
+
+      toast({
+        title: "Success",
+        description: `User ${username} approved successfully`,
+      });
+      
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to approve user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectUser = async () => {
+    if (!rejectUserId) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${rejectUserId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: rejectionReason || 'Not approved by administrator' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject user');
+      }
+
+      toast({
+        title: "Success",
+        description: "User rejected successfully",
+      });
+      
+      setRejectDialogOpen(false);
+      setRejectUserId(null);
+      setRejectionReason("");
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'rejected':
+        return 'destructive';
+      case 'inactive':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'text-green-600';
+      case 'pending':
+        return 'text-yellow-600';
+      case 'rejected':
+        return 'text-red-600';
+      case 'inactive':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
   const stats = [
     {
       title: "Total Users",
@@ -253,8 +358,15 @@ export default function UserManagement() {
       description: "All registered users",
     },
     {
-      title: "Active Researchers",
-      value: users.filter(u => u.role === 'researcher' && u.is_active).length.toString(),
+      title: "Pending Approvals",
+      value: pendingUsers.length.toString(),
+      icon: Shield,
+      description: "Waiting for approval",
+      highlight: pendingUsers.length > 0,
+    },
+    {
+      title: "Active Users",
+      value: activeUsers.length.toString(),
       icon: CheckCircle,
       description: "Currently active",
     },
@@ -376,17 +488,19 @@ export default function UserManagement() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.title}>
+          <Card key={stat.title} className={stat.highlight ? 'border-yellow-500 border-2' : ''}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {stat.title}
               </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <stat.icon className={`h-4 w-4 ${stat.highlight ? 'text-yellow-600' : 'text-muted-foreground'}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className={`text-2xl font-bold ${stat.highlight ? 'text-yellow-600' : ''}`}>
+                {stat.value}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {stat.description}
               </p>
@@ -394,6 +508,60 @@ export default function UserManagement() {
           </Card>
         ))}
       </div>
+
+      {pendingUsers.length > 0 && (
+        <Card className="border-yellow-500 border-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-yellow-600" />
+              Pending Approvals
+            </CardTitle>
+            <CardDescription>
+              {pendingUsers.length} user{pendingUsers.length !== 1 ? 's' : ''} waiting for approval
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {pendingUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium">{user.full_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      @{user.username} • {user.email}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Registered: {new Date(user.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">
+                      {user.role}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveUser(user.id, user.username)}
+                    >
+                      <CheckCircle className="mr-2 h-3 w-3" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setRejectUserId(user.id);
+                        setRejectDialogOpen(true);
+                      }}
+                    >
+                      <XCircle className="mr-2 h-3 w-3" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -410,6 +578,7 @@ export default function UserManagement() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Account Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -417,13 +586,13 @@ export default function UserManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     Loading users...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <Users className="h-8 w-8 text-muted-foreground" />
                       <p className="text-muted-foreground">No users found</p>
@@ -454,6 +623,7 @@ export default function UserManagement() {
                       <Select
                         value={user.role}
                         onValueChange={(value) => handleChangeRole(user.id, user.username, value)}
+                        disabled={user.status === 'pending' || user.status === 'rejected'}
                       >
                         <SelectTrigger className="w-32">
                           <SelectValue />
@@ -481,6 +651,21 @@ export default function UserManagement() {
                       </Select>
                     </TableCell>
                     <TableCell>
+                      <Badge variant={getStatusVariant(user.status || 'active')}>
+                        {user.status || 'active'}
+                      </Badge>
+                      {user.approval_date && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Approved: {new Date(user.approval_date).toLocaleDateString()}
+                        </div>
+                      )}
+                      {user.rejection_reason && (
+                        <div className="text-xs text-red-600 mt-1">
+                          Reason: {user.rejection_reason}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Badge
                         variant={user.is_active ? "default" : "secondary"}
                       >
@@ -492,30 +677,56 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant={user.is_active ? "outline" : "default"}
-                          size="sm"
-                          onClick={() => handleToggleUserStatus(user.id, user.username, user.is_active)}
-                        >
-                          {user.is_active ? (
-                            <>
-                              <XCircle className="mr-2 h-3 w-3" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
+                        {user.status === 'pending' ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveUser(user.id, user.username)}
+                            >
                               <CheckCircle className="mr-2 h-3 w-3" />
-                              Activate
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setDeleteUserId(user.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                              Approve
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setRejectUserId(user.id);
+                                setRejectDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="mr-2 h-3 w-3" />
+                              Reject
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant={user.is_active ? "outline" : "default"}
+                              size="sm"
+                              onClick={() => handleToggleUserStatus(user.id, user.username, user.is_active)}
+                              disabled={user.status === 'rejected'}
+                            >
+                              {user.is_active ? (
+                                <>
+                                  <XCircle className="mr-2 h-3 w-3" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="mr-2 h-3 w-3" />
+                                  Activate
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteUserId(user.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -543,6 +754,47 @@ export default function UserManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject User Registration</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this user's registration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejection_reason">Rejection Reason</Label>
+              <Textarea
+                id="rejection_reason"
+                placeholder="e.g., Does not meet eligibility criteria, Invalid credentials, etc."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setRejectDialogOpen(false);
+                setRejectUserId(null);
+                setRejectionReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectUser}
+            >
+              Reject User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
