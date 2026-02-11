@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useBackendApi } from "@/hooks/useBackendApi";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/config/api";
 import {
   Dialog,
   DialogContent,
@@ -65,13 +66,49 @@ export default function ResearchQuestions() {
   }, []);
 
   const loadQuestions = async () => {
-    // Add timestamp to bypass cache
-    const result = await fetchQuestions({ _t: Date.now() } as any);
-    if (result.success) {
-      const questionsData = (result as any).data?.questions || (result as any).data || [];
-      if (Array.isArray(questionsData)) {
-        setQuestions(questionsData);
+    // First, clear the cache
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/cache/questions`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        console.log('Cache cleared before loading');
+        // Wait a moment for cache to clear
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (err) {
+        console.warn('Failed to clear cache:', err);
       }
+    }
+    
+    // Now load questions
+    const timestamp = Date.now();
+    console.log('Loading questions with cache-bust:', timestamp);
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/questions?_nocache=${timestamp}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      const result = await response.json();
+      console.log('Questions fetch result:', result);
+      console.log('Was cached?', result.cached);
+      
+      if (result.success || result.data) {
+        const questionsData = result.data?.questions || result.questions || [];
+        if (Array.isArray(questionsData)) {
+          console.log('Loaded questions:', questionsData.length, 'questions');
+          setQuestions(questionsData);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load questions:', error);
     }
   };
 
@@ -163,20 +200,71 @@ export default function ResearchQuestions() {
 
   const handleToggleStatus = async (question: ResearchQuestion) => {
     const newStatus = !question.is_active;
-    const result = await updateQuestion(question.id, {
-      is_active: newStatus,
-    });
     
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: `Question ${newStatus ? 'activated' : 'deactivated'}`,
-      });
-      await loadQuestions();
-    } else {
+    console.log('Toggling question:', question.id, 'from', question.is_active, 'to', newStatus);
+    
+    // Optimistic update - update UI immediately
+    setQuestions(prevQuestions =>
+      prevQuestions.map(q =>
+        q.id === question.id ? { ...q, is_active: newStatus } : q
+      )
+    );
+    
+    try {
+      const updateData = { is_active: newStatus };
+      console.log('Sending update:', updateData);
+      
+      const result = await updateQuestion(question.id, updateData);
+      
+      console.log('Update result:', result);
+      console.log('Updated question from API:', result.question);
+      
+      if (result.success && result.question) {
+        console.log('API confirmed is_active:', result.question.is_active);
+        console.log('API confirmed updated_at:', result.question.updated_at);
+        
+        toast({
+          title: "Success",
+          description: `Question ${newStatus ? 'activated' : 'deactivated'}`,
+        });
+        
+        // Clear the questions cache in background
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          fetch(`${API_BASE_URL}/api/cache/questions`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }).then(res => res.json())
+            .then(data => console.log('Cache cleared:', data))
+            .catch(err => console.warn('Cache clear failed:', err));
+        }
+      } else {
+        console.error('Update failed:', result.error);
+        // Revert optimistic update on error
+        setQuestions(prevQuestions =>
+          prevQuestions.map(q =>
+            q.id === question.id ? { ...q, is_active: !newStatus } : q
+          )
+        );
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update question status",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      console.error('Update exception:', err);
+      // Revert on exception
+      setQuestions(prevQuestions =>
+        prevQuestions.map(q =>
+          q.id === question.id ? { ...q, is_active: !newStatus } : q
+        )
+      );
       toast({
         title: "Error",
-        description: result.error || "Failed to update question status",
+        description: err.message || "Failed to update question status",
         variant: "destructive",
       });
     }
