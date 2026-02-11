@@ -266,7 +266,7 @@ export default function AdminDashboard() {
             <Button 
               variant="outline" 
               className="justify-start h-auto py-4"
-              onClick={() => navigate('/research-questions')}
+              onClick={() => navigate('/questions')}
             >
               <div className="flex flex-col items-start gap-1">
                 <div className="flex items-center gap-2">
