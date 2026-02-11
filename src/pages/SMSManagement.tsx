@@ -24,11 +24,12 @@ interface SMSStats {
 
 interface RecentActivity {
   phone_number: string;
-  response_type: string;
-  language: string;
+  message: string;
+  message_type: string;
+  status: string;
   created_at: string;
-  question_title: string;
-  response_text: string;
+  cost: string;
+  sent_by_username: string;
 }
 
 interface Participant {
@@ -151,16 +152,16 @@ export default function SMSManagement() {
   // Filter recent activity
   const filteredActivity = recentActivity.filter((activity) => {
     // Filter by type
-    if (filterType !== "all" && activity.response_type !== filterType) {
+    if (filterType !== "all" && activity.message_type !== filterType) {
       return false;
     }
 
-    // Filter by search (phone number or question title)
+    // Filter by search (phone number or message)
     if (filterSearch) {
       const searchLower = filterSearch.toLowerCase();
       const matchesPhone = activity.phone_number.toLowerCase().includes(searchLower);
-      const matchesQuestion = activity.question_title?.toLowerCase().includes(searchLower);
-      if (!matchesPhone && !matchesQuestion) {
+      const matchesMessage = activity.message?.toLowerCase().includes(searchLower);
+      if (!matchesPhone && !matchesMessage) {
         return false;
       }
     }
@@ -199,7 +200,7 @@ export default function SMSManagement() {
         },
         body: JSON.stringify({
           phoneNumber,
-          message,
+          message, // Send the actual message
           language: 'en'
         }),
       });
@@ -562,9 +563,10 @@ export default function SMSManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="voice">Voice</SelectItem>
-                <SelectItem value="ussd">USSD</SelectItem>
-                <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="bulk">Bulk</SelectItem>
+                <SelectItem value="invitation">Invitation</SelectItem>
+                <SelectItem value="thank_you">Thank You</SelectItem>
               </SelectContent>
             </Select>
 
@@ -666,17 +668,19 @@ export default function SMSManagement() {
                           {activity.phone_number}
                         </span>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          activity.response_type === 'voice' 
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                            : activity.response_type === 'ussd'
+                          activity.message_type === 'bulk' 
                             ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : activity.message_type === 'manual'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            : activity.message_type === 'invitation'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
                         }`}>
-                          {activity.response_type.toUpperCase()}
+                          {activity.message_type.toUpperCase().replace('_', ' ')}
                         </span>
-                        {activity.language && activity.language !== 'en' && (
+                        {activity.cost && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                            {activity.language.toUpperCase()}
+                            {activity.cost}
                           </span>
                         )}
                       </div>
@@ -685,21 +689,21 @@ export default function SMSManagement() {
                       </span>
                     </div>
 
-                    {/* Question title */}
-                    {activity.question_title && (
+                    {/* Sent by */}
+                    {activity.sent_by_username && (
                       <div className="flex items-start gap-2">
-                        <span className="text-xs text-muted-foreground">Question:</span>
-                        <p className="text-sm font-medium text-foreground line-clamp-1 flex-1">
-                          {activity.question_title}
+                        <span className="text-xs text-muted-foreground">Sent by:</span>
+                        <p className="text-xs font-medium text-foreground">
+                          {activity.sent_by_username}
                         </p>
                       </div>
                     )}
 
-                    {/* Response text */}
-                    {activity.response_text && (
+                    {/* Message text */}
+                    {activity.message && (
                       <div className="bg-muted/50 rounded-md p-3 border border-border/50">
                         <p className="text-sm text-muted-foreground line-clamp-2">
-                          "{activity.response_text}"
+                          "{activity.message}"
                         </p>
                       </div>
                     )}
