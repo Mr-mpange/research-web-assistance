@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +19,6 @@ import {
   Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useBackendApi } from "@/hooks/useBackendApi";
 import { format } from "date-fns";
 import { API_BASE_URL } from "@/config/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +34,7 @@ interface User {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,23 +45,34 @@ export default function AdminDashboard() {
     totalParticipants: 0,
   });
   const { toast } = useToast();
-  const { fetchAnalytics } = useBackendApi();
   const { token } = useAuth();
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch analytics for stats
-      const analyticsResult = await fetchAnalytics();
-      if (analyticsResult.success && (analyticsResult as any).data) {
-        const data = (analyticsResult as any).data.analytics;
-        setStats({
-          totalUsers: 0, // Will be updated from users fetch
-          totalQuestions: parseInt(data.responseStats?.questions_answered || 0),
-          totalResponses: parseInt(data.responseStats?.total_responses || 0),
-          totalParticipants: parseInt(data.responseStats?.unique_participants || 0),
-        });
+      // Fetch analytics for stats directly
+      const analyticsResponse = await fetch(`${API_BASE_URL}/api/analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      let totalResponses = 0;
+      let totalParticipants = 0;
+
+      if (analyticsResponse.ok) {
+        const analyticsData = await analyticsResponse.json();
+        const stats = analyticsData.analytics || analyticsData;
+        totalResponses = parseInt(stats.responseStats?.total_responses || 0);
+        totalParticipants = parseInt(stats.responseStats?.unique_participants || 0);
       }
+
+      setStats({
+        totalUsers: 0, // Will be updated from users fetch
+        totalQuestions: 0, // Will be updated from questions fetch
+        totalResponses,
+        totalParticipants,
+      });
 
       // Fetch real users from API
       const usersResponse = await fetch(`${API_BASE_URL}/api/users`, {
@@ -76,6 +88,20 @@ export default function AdminDashboard() {
         setStats(prev => ({ ...prev, totalUsers: usersList.length }));
       } else {
         throw new Error('Failed to fetch users');
+      }
+
+      // Fetch questions to get active count
+      const questionsResponse = await fetch(`${API_BASE_URL}/api/questions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (questionsResponse.ok) {
+        const questionsData = await questionsResponse.json();
+        const questionsList = questionsData.data?.questions || questionsData.questions || [];
+        const activeQuestions = questionsList.filter((q: any) => q.is_active === true);
+        setStats(prev => ({ ...prev, totalQuestions: activeQuestions.length }));
       }
     } catch (error: any) {
       console.error("Error fetching data:", error);
@@ -237,7 +263,11 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Button variant="outline" className="justify-start h-auto py-4">
+            <Button 
+              variant="outline" 
+              className="justify-start h-auto py-4"
+              onClick={() => navigate('/research-questions')}
+            >
               <div className="flex flex-col items-start gap-1">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
@@ -248,7 +278,11 @@ export default function AdminDashboard() {
                 </span>
               </div>
             </Button>
-            <Button variant="outline" className="justify-start h-auto py-4">
+            <Button 
+              variant="outline" 
+              className="justify-start h-auto py-4"
+              onClick={() => navigate('/voice-records')}
+            >
               <div className="flex flex-col items-start gap-1">
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4" />
@@ -259,7 +293,11 @@ export default function AdminDashboard() {
                 </span>
               </div>
             </Button>
-            <Button variant="outline" className="justify-start h-auto py-4">
+            <Button 
+              variant="outline" 
+              className="justify-start h-auto py-4"
+              onClick={() => navigate('/reports')}
+            >
               <div className="flex flex-col items-start gap-1">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
