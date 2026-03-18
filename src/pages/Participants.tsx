@@ -1,10 +1,11 @@
-import { Search, Filter, Mail, Phone, MapPin, Loader2, AlertCircle } from "lucide-react";
+import { Search, Filter, Mail, Phone, MapPin, Loader2, AlertCircle, User2, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useBackendApi } from "@/hooks/useBackendApi";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/config/api";
 import {
   Select,
   SelectContent,
@@ -27,18 +28,63 @@ interface Participant {
   last_response_date: string;
   response_types: string[];
   questions_answered: number;
+  researcher_ids: string[];
+  researcher_names: string[];
+  question_groups: string[];
+}
+
+interface Researcher {
+  id: string;
+  full_name: string;
+  username: string;
+  role: string;
 }
 
 export default function Participants() {
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [researchers, setResearchers] = useState<Researcher[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [researcherFilter, setResearcherFilter] = useState("all");
   const { loading, error, fetchResponses } = useBackendApi();
   const { toast } = useToast();
 
   useEffect(() => {
+    loadResearchers();
+    loadQuestions();
     loadParticipants();
   }, []);
+
+  const loadResearchers = async () => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const all: Researcher[] = Array.isArray(data) ? data : data.users || [];
+      setResearchers(all.filter((u) => u.role === "researcher"));
+    } catch {
+      /* non-critical */
+    }
+  };
+
+  const loadQuestions = async () => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/questions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const questionsData = data.data?.questions || data.questions || [];
+      setQuestions(Array.isArray(questionsData) ? questionsData : []);
+    } catch {
+      /* non-critical */
+    }
+  };
 
   const loadParticipants = async () => {
     const result = await fetchResponses({
@@ -76,6 +122,9 @@ export default function Participants() {
               last_response_date: r.created_at,
               response_types: [],
               questions_answered: 0,
+              researcher_ids: [],
+              researcher_names: [],
+              question_groups: [],
             });
           }
           
@@ -84,6 +133,22 @@ export default function Participants() {
           
           if (!participant.response_types.includes(r.response_type)) {
             participant.response_types.push(r.response_type);
+          }
+          
+          // Find the question to get researcher info
+          if (r.question_id) {
+            const question = questions.find((q: any) => q.id === r.question_id);
+            if (question) {
+              if (question.researcher_id && !participant.researcher_ids.includes(question.researcher_id)) {
+                participant.researcher_ids.push(question.researcher_id);
+              }
+              if (question.researcher_name && !participant.researcher_names.includes(question.researcher_name)) {
+                participant.researcher_names.push(question.researcher_name);
+              }
+              if (question.title && !participant.question_groups.includes(question.title)) {
+                participant.question_groups.push(question.title);
+              }
+            }
           }
           
           if (new Date(r.created_at) > new Date(participant.last_response_date)) {
@@ -112,7 +177,10 @@ export default function Participants() {
   const filteredParticipants = participants.filter((p) => {
     const matchesSearch = p.phone_number.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || p.response_types.includes(typeFilter);
-    return matchesSearch && matchesType;
+    const matchesResearcher = researcherFilter === "all" || 
+      p.researcher_ids.includes(researcherFilter) ||
+      (researcherFilter === "__unassigned__" && p.researcher_ids.length === 0);
+    return matchesSearch && matchesType && matchesResearcher;
   });
 
   if (loading && participants.length === 0) {
@@ -160,9 +228,9 @@ export default function Participants() {
           </p>
         </div>
         <div className="stat-card">
-          <p className="text-sm font-medium text-muted-foreground">Total Interactions</p>
+          <p className="text-sm font-medium text-muted-foreground">Researchers Active</p>
           <p className="text-2xl font-semibold">
-            {participants.reduce((sum, p) => sum + p.total_responses, 0)}
+            {new Set(participants.flatMap(p => p.researcher_ids)).size}
           </p>
         </div>
       </div>
@@ -189,6 +257,19 @@ export default function Participants() {
             <SelectItem value="ussd">USSD Only</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={researcherFilter} onValueChange={setResearcherFilter}>
+          <SelectTrigger className="w-48">
+            <User2 className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="All Researchers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Researchers</SelectItem>
+            {researchers.map((r) => (
+              <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>
+            ))}
+            <SelectItem value="__unassigned__">Unassigned</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Participants Table */}
@@ -197,6 +278,8 @@ export default function Participants() {
           <TableHeader>
             <TableRow>
               <TableHead>Phone Number</TableHead>
+              <TableHead>Researcher(s)</TableHead>
+              <TableHead>Question Groups</TableHead>
               <TableHead>Response Types</TableHead>
               <TableHead>Total Responses</TableHead>
               <TableHead>Last Contact</TableHead>
@@ -206,7 +289,7 @@ export default function Participants() {
           <TableBody>
             {filteredParticipants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No participants found
                 </TableCell>
               </TableRow>
@@ -217,6 +300,37 @@ export default function Participants() {
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{participant.phone_number}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {participant.researcher_names.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {participant.researcher_names.map((name, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <User2 className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 max-w-xs">
+                      {participant.question_groups.slice(0, 2).map((group, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium truncate"
+                        >
+                          {group}
+                        </span>
+                      ))}
+                      {participant.question_groups.length > 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{participant.question_groups.length - 2} more
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -262,7 +376,7 @@ export default function Participants() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Participant data is aggregated from all responses. Each unique phone number represents one participant.
+            Participants are grouped by the researcher's questions they answered. Each participant may respond to multiple researchers' question groups.
           </AlertDescription>
         </Alert>
       )}

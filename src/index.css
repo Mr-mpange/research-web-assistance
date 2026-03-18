@@ -1,117 +1,117 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Professional Research Dashboard Design System
-   Inspired by: World Bank, UNICEF, University Research Portals
-   Colors: Neutral, corporate, accessible
+/*
+  ResearchHub Premium Design System
+  Deep Navy × Sky Blue × Teal
 */
 
 @layer base {
   :root {
-    /* Off-white background for institutional feel */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    /* Backgrounds */
+    --background: 220 18% 97%;
+    --foreground: 220 30% 12%;
 
-    /* Card surfaces - clean white */
+    /* Card surfaces */
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 220 30% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 220 30% 12%;
 
-    /* Primary - Corporate dark blue */
-    --primary: 215 50% 23%;
+    /* Primary – rich deep navy */
+    --primary: 221 65% 22%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Muted teal/green for accents */
-    --secondary: 168 30% 40%;
+    /* Secondary – vibrant teal */
+    --secondary: 174 60% 35%;
     --secondary-foreground: 0 0% 100%;
 
     /* Muted surfaces */
-    --muted: 210 15% 94%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 14% 46%;
 
-    /* Accent - Subtle warm tone */
-    --accent: 210 15% 92%;
-    --accent-foreground: 215 25% 15%;
+    /* Accent – sky blue */
+    --accent: 204 80% 56%;
+    --accent-foreground: 0 0% 100%;
 
     /* Status colors */
-    --destructive: 0 65% 50%;
+    --destructive: 3 75% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 50% 40%;
+    --success: 158 60% 38%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 90% 50%;
-    --warning-foreground: 215 25% 15%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 30% 12%;
 
-    /* Borders - subtle, professional */
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 215 50% 23%;
+    /* Borders */
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
+    --ring: 221 65% 22%;
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
 
-    /* Sidebar - clean slate */
-    --sidebar-background: 215 25% 15%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 168 30% 50%;
+    /* Sidebar – deep navy */
+    --sidebar-background: 221 55% 16%;
+    --sidebar-foreground: 220 18% 80%;
+    --sidebar-primary: 174 60% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 20%;
-    --sidebar-accent-foreground: 210 15% 95%;
-    --sidebar-border: 215 20% 22%;
-    --sidebar-ring: 168 30% 50%;
-    --sidebar-muted: 215 15% 35%;
+    --sidebar-accent: 221 50% 22%;
+    --sidebar-accent-foreground: 220 18% 96%;
+    --sidebar-border: 221 40% 22%;
+    --sidebar-ring: 174 60% 55%;
+    --sidebar-muted: 220 20% 48%;
 
-    /* Chart colors - professional palette */
-    --chart-1: 215 50% 35%;
-    --chart-2: 168 35% 45%;
-    --chart-3: 38 60% 55%;
-    --chart-4: 280 30% 50%;
-    --chart-5: 0 50% 55%;
+    /* Chart colors */
+    --chart-1: 221 65% 38%;
+    --chart-2: 174 55% 42%;
+    --chart-3: 38 78% 55%;
+    --chart-4: 270 45% 55%;
+    --chart-5: 3 65% 55%;
   }
 
   .dark {
-    --background: 215 25% 10%;
-    --foreground: 210 15% 92%;
+    --background: 221 40% 9%;
+    --foreground: 220 18% 92%;
 
-    --card: 215 25% 13%;
-    --card-foreground: 210 15% 92%;
+    --card: 221 40% 12%;
+    --card-foreground: 220 18% 92%;
 
-    --popover: 215 25% 13%;
-    --popover-foreground: 210 15% 92%;
+    --popover: 221 40% 12%;
+    --popover-foreground: 220 18% 92%;
 
-    --primary: 168 35% 55%;
-    --primary-foreground: 215 25% 10%;
+    --primary: 174 60% 55%;
+    --primary-foreground: 221 40% 9%;
 
-    --secondary: 215 30% 25%;
-    --secondary-foreground: 210 15% 92%;
+    --secondary: 221 40% 22%;
+    --secondary-foreground: 220 18% 92%;
 
-    --muted: 215 25% 18%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 221 35% 18%;
+    --muted-foreground: 220 14% 56%;
 
-    --accent: 215 25% 20%;
-    --accent-foreground: 210 15% 92%;
+    --accent: 204 80% 56%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 55% 45%;
+    --destructive: 3 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 20% 22%;
-    --input: 215 20% 22%;
-    --ring: 168 35% 55%;
+    --border: 221 30% 22%;
+    --input: 221 30% 22%;
+    --ring: 174 60% 55%;
 
-    --sidebar-background: 215 30% 8%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 168 35% 55%;
-    --sidebar-primary-foreground: 215 25% 10%;
-    --sidebar-accent: 215 25% 15%;
-    --sidebar-accent-foreground: 210 15% 95%;
-    --sidebar-border: 215 20% 15%;
-    --sidebar-ring: 168 35% 55%;
-    --sidebar-muted: 215 15% 40%;
+    --sidebar-background: 221 50% 7%;
+    --sidebar-foreground: 220 18% 82%;
+    --sidebar-primary: 174 60% 55%;
+    --sidebar-primary-foreground: 221 40% 9%;
+    --sidebar-accent: 221 40% 15%;
+    --sidebar-accent-foreground: 220 18% 95%;
+    --sidebar-border: 221 30% 15%;
+    --sidebar-ring: 174 60% 55%;
+    --sidebar-muted: 220 20% 42%;
   }
 }
 
@@ -129,34 +129,83 @@
     font-feature-settings: "cv11", "ss01";
   }
 
-  /* Professional table styling */
+  /* ── Professional table styling ── */
   .data-table th {
-    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40;
   }
 
   .data-table td {
     @apply text-sm;
   }
 
-  /* Stat card styling */
+  /* ── Premium Stat Cards ── */
   .stat-card {
-    @apply bg-card border border-border rounded-md p-5 transition-shadow duration-200;
+    @apply bg-card border border-border rounded-xl p-5 transition-all duration-200 relative overflow-hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-1 bg-primary/30 rounded-l-xl transition-all duration-200;
   }
 
   .stat-card:hover {
-    @apply shadow-sm;
+    @apply shadow-md -translate-y-0.5;
   }
 
-  /* Sidebar link styling */
+  .stat-card:hover::before {
+    @apply bg-accent w-1.5;
+  }
+
+  /* ── Page header gradient ── */
+  .page-header-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.06) 0%, hsl(var(--accent) / 0.04) 100%);
+    @apply rounded-xl border border-border p-6;
+  }
+
+  /* ── Sidebar link styling ── */
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150;
+    @apply flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 relative;
+  }
+
+  .sidebar-link::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-sidebar-primary rounded-full transition-all duration-200 opacity-0;
   }
 
   .sidebar-link:hover {
     @apply bg-sidebar-accent text-sidebar-accent-foreground;
   }
 
+  .sidebar-link:hover::before {
+    @apply h-4 opacity-70;
+  }
+
   .sidebar-link.active {
     @apply bg-sidebar-accent text-sidebar-primary;
   }
+
+  .sidebar-link.active::before {
+    @apply h-6 opacity-100;
+  }
+
+  /* ── Researcher group header ── */
+  .researcher-group-header {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-gradient-to-r from-primary/5 to-accent/5 cursor-pointer hover:from-primary/10 hover:to-accent/10 transition-all duration-150 select-none;
+  }
+
+  .researcher-group-header:hover {
+    @apply shadow-sm;
+  }
+
+  /* ── Category badge colors ── */
+  .badge-health       { @apply bg-emerald-100 text-emerald-800 border border-emerald-200; }
+  .badge-infrastructure{ @apply bg-blue-100 text-blue-800 border border-blue-200; }
+  .badge-social       { @apply bg-purple-100 text-purple-800 border border-purple-200; }
+  .badge-economic     { @apply bg-amber-100 text-amber-800 border border-amber-200; }
+  .badge-environment  { @apply bg-teal-100 text-teal-800 border border-teal-200; }
+
+  /* ── Role badge colors ── */
+  .role-admin      { @apply bg-red-100 text-red-800 border border-red-200; }
+  .role-researcher { @apply bg-blue-100 text-blue-800 border border-blue-200; }
+  .role-viewer     { @apply bg-slate-100 text-slate-700 border border-slate-200; }
 }

@@ -45,6 +45,20 @@ export const API_ENDPOINTS = {
     process: '/api/ai/process',
     status: '/api/ai/status',
   },
+
+  // Projects (multi-tenant)
+  projects: {
+    list: '/api/projects',
+    create: '/api/projects',
+    get: (id: string) => `/api/projects/${id}`,
+    update: (id: string) => `/api/projects/${id}`,
+    delete: (id: string) => `/api/projects/${id}`,
+    questions: (id: string) => `/api/projects/${id}/questions`,
+    responses: (id: string) => `/api/projects/${id}/responses`,
+    submitResponse: (id: string) => `/api/projects/${id}/responses`,
+    aiSummary: (id: string) => `/api/projects/${id}/ai-summary`,
+    generateAI: (id: string) => `/api/projects/${id}/ai-summary/generate`,
+  },
   
   // USSD & Voice (for testing)
   ussd: {

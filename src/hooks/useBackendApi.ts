@@ -7,6 +7,7 @@ import {
   analyticsService,
   aiService,
   smsService,
+  projectsService,
   healthCheck,
 } from '@/services/apiService';
 
@@ -151,6 +152,23 @@ export const useBackendApi = () => {
     }
   }, [getToken]);
 
+  const getAIStatus = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await aiService.status(getToken());
+      setLoading(false);
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+      return { success: false, error: err.message };
+    }
+  }, [getToken]);
+
+  // Alias for compatibility
+  const processAI = triggerAiProcessing;
+
   // SMS
   const sendThankYouSms = useCallback(async (data: any) => {
     setLoading(true);
@@ -196,8 +214,61 @@ export const useBackendApi = () => {
     fetchAnalytics,
     // AI
     triggerAiProcessing,
+    processAI,
+    getAIStatus,
     // SMS
     sendThankYouSms,
     sendInviteSms,
+    // Projects
+    fetchProjects: useCallback(async () => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.list(); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    fetchProject: useCallback(async (id: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.get(id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    createProject: useCallback(async (data: any) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.create(data); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    updateProject: useCallback(async (id: string, data: any) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.update(id, data); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    deleteProject: useCallback(async (id: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.delete(id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    fetchProjectQuestions: useCallback(async (id: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.getQuestions(id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    fetchProjectResponses: useCallback(async (id: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.getResponses(id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    submitProjectResponse: useCallback(async (projectId: string, data: any) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.submitResponse(projectId, data); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    fetchProjectAISummary: useCallback(async (id: string, question_id?: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.getAISummary(id, question_id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
+    generateProjectAI: useCallback(async (id: string, question_id?: string) => {
+      setLoading(true); setError(null);
+      try { const r = await projectsService.generateAI(id, question_id); setLoading(false); return r; }
+      catch (e: any) { setError(e.message); setLoading(false); return { success: false, error: e.message }; }
+    }, []),
   };
 };

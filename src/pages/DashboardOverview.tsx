@@ -8,7 +8,6 @@ import { useBackendApi } from "@/hooks/useBackendApi";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function DashboardOverview() {
-  const { loading, error, fetchAnalytics, fetchQuestions, fetchResponses } = useBackendApi();
   const [stats, setStats] = useState({
     totalResponses: 0,
     voiceResponses: 0,
@@ -17,6 +16,8 @@ export default function DashboardOverview() {
     totalMinutes: 0,
     summariesGenerated: 0,
   });
+  
+  const { loading, error, fetchAnalytics, fetchQuestions, fetchResponses } = useBackendApi();
 
   useEffect(() => {
     const loadDashboardData = async () => {

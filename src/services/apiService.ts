@@ -228,3 +228,51 @@ export const smsService = {
     return apiRequest(API_ENDPOINTS.sms.statistics);
   },
 };
+
+// ── Projects Service (multi-tenant) ──────────────────────────────────────────
+export const projectsService = {
+  list: async () => apiRequest(API_ENDPOINTS.projects.list),
+
+  get: async (id: string) => apiRequest(API_ENDPOINTS.projects.get(id)),
+
+  create: async (data: { title: string; description?: string }) =>
+    apiRequest(API_ENDPOINTS.projects.create, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: async (id: string, data: Partial<{ title: string; description: string; is_active: boolean }>) =>
+    apiRequest(API_ENDPOINTS.projects.update(id), {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: async (id: string) =>
+    apiRequest(API_ENDPOINTS.projects.delete(id), { method: 'DELETE' }),
+
+  getQuestions: async (id: string) => apiRequest(API_ENDPOINTS.projects.questions(id)),
+
+  getResponses: async (id: string) => apiRequest(API_ENDPOINTS.projects.responses(id)),
+
+  submitResponse: async (
+    projectId: string,
+    data: { question_id: string; phone_number: string; response_text: string; name?: string; audio_url?: string }
+  ) =>
+    apiRequest(API_ENDPOINTS.projects.submitResponse(projectId), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAISummary: async (id: string, question_id?: string) => {
+    const ep = question_id
+      ? `${API_ENDPOINTS.projects.aiSummary(id)}?question_id=${question_id}`
+      : API_ENDPOINTS.projects.aiSummary(id);
+    return apiRequest(ep);
+  },
+
+  generateAI: async (id: string, question_id?: string) =>
+    apiRequest(API_ENDPOINTS.projects.generateAI(id), {
+      method: 'POST',
+      body: JSON.stringify({ question_id }),
+    }),
+};

@@ -28,6 +28,7 @@ import Auth from "./pages/Auth";
 import DashboardOverview from "./pages/DashboardOverview";
 import VoiceRecords from "./pages/VoiceRecords";
 import Transcriptions from "./pages/Transcriptions";
+import AISummaries from "./pages/AISummaries";
 import ResearchQuestions from "./pages/ResearchQuestions";
 import Participants from "./pages/Participants";
 import Reports from "./pages/Reports";
@@ -35,6 +36,10 @@ import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import SMSManagement from "./pages/SMSManagement";
 import UserManagement from "./pages/UserManagement";
+import ResearchMarketplace from "./pages/ResearchMarketplace";
+import ProjectQuestionFlow from "./pages/ProjectQuestionFlow";
+import Projects from "./pages/Projects";
+import ProjectInsights from "./pages/ProjectInsights";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +72,9 @@ const queryClient = new QueryClient();
                 <Route path="/resources" element={<Resources />} />
               </Route>
              <Route path="/auth" element={<Auth />} />
+             {/* Public participant routes */}
+             <Route path="/marketplace" element={<ResearchMarketplace />} />
+             <Route path="/project/:id" element={<ProjectQuestionFlow />} />
  
              {/* Protected Dashboard Routes */}
              <Route
@@ -79,12 +87,13 @@ const queryClient = new QueryClient();
               <Route path="/dashboard" element={<DashboardOverview />} />
               <Route path="/voice-records" element={<VoiceRecords />} />
               <Route path="/transcriptions" element={<Transcriptions />} />
-              <Route path="/summaries" element={<Transcriptions />} />
+              <Route path="/summaries" element={<AISummaries />} />
               <Route path="/questions" element={<ResearchQuestions />} />
               <Route path="/participants" element={<Participants />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/sms" element={<SMSManagement />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/dashboard/projects/:id/insights" element={<ProjectInsights />} />
             </Route>
             
             {/* Admin Routes */}
@@ -98,6 +107,7 @@ const queryClient = new QueryClient();
             >
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="sms" element={<SMSManagement />} />
             </Route>
             
             {/* Admin-only User Management */}
@@ -110,6 +120,18 @@ const queryClient = new QueryClient();
               }
             >
               <Route index element={<UserManagement />} />
+            </Route>
+            
+            {/* Admin-only SMS Management */}
+            <Route
+              path="/sms"
+              element={
+                <AdminRoute>
+                  <DashboardLayout />
+                </AdminRoute>
+              }
+            >
+              <Route index element={<SMSManagement />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

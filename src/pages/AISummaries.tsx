@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Loader2, AlertCircle, Play, CheckCircle, TrendingUp, MessageSquare } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Brain, Loader2, AlertCircle, CheckCircle, TrendingUp, MessageSquare } from "lucide-react";
 import { useBackendApi } from "@/hooks/useBackendApi";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 interface AISummary {
   id: string;
   response_id: string;
+  response_type?: 'voice' | 'ussd';
   summary_text: string;
   key_points: string[];
   themes: Array<{ name: string; relevance: number; keywords: string[] }>;
@@ -30,10 +30,8 @@ interface AISummary {
 
 export default function AISummaries() {
   const [summaries, setSummaries] = useState<AISummary[]>([]);
-  const [processing, setProcessing] = useState(false);
   const [aiStatus, setAiStatus] = useState<any>(null);
-  const { loading, error, fetchResponses, processAI, getAIStatus } = useBackendApi();
-  const { toast } = useToast();
+  const { loading, error, fetchResponses, getAIStatus } = useBackendApi();
 
   useEffect(() => {
     loadSummaries();
@@ -41,7 +39,8 @@ export default function AISummaries() {
   }, []);
 
   const loadSummaries = async () => {
-    const result = await fetchResponses({ includeAI: true, type: 'voice' });
+    // Fetch both voice and USSD responses with AI summaries
+    const result = await fetchResponses({ includeAI: true });
     if (result.success) {
       const responsesData = (result as any).data?.responses || (result as any).data || [];
       // Filter only responses that have AI summaries
@@ -54,27 +53,6 @@ export default function AISummaries() {
     const result = await getAIStatus();
     if (result.success) {
       setAiStatus((result as any).data?.status || (result as any).data);
-    }
-  };
-
-  const handleProcessAI = async () => {
-    setProcessing(true);
-    const result = await processAI(10);
-    setProcessing(false);
-
-    if (result.success) {
-      const processedCount = (result as any).data?.processedCount || 0;
-      toast({
-        title: "AI Processing Complete",
-        description: `Processed ${processedCount} recordings`,
-      });
-      await loadSummaries();
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to process recordings",
-        variant: "destructive",
-      });
     }
   };
 
@@ -100,6 +78,28 @@ export default function AISummaries() {
     }
   };
 
+  const getResponseTypeColor = (type?: string) => {
+    switch (type) {
+      case 'voice':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'ussd':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+    }
+  };
+
+  const getResponseTypeIcon = (type?: string) => {
+    switch (type) {
+      case 'voice':
+        return '🎤';
+      case 'ussd':
+        return '📱';
+      default:
+        return '💬';
+    }
+  };
+
   if (loading && summaries.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -115,22 +115,9 @@ export default function AISummaries() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">AI Summaries</h1>
           <p className="text-sm text-muted-foreground">
-            AI-generated summaries and insights from voice responses
+            AI-generated summaries and insights from voice and USSD responses
           </p>
         </div>
-        <Button onClick={handleProcessAI} disabled={processing}>
-          {processing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-4 w-4" />
-              Process New Recordings
-            </>
-          )}
-        </Button>
       </div>
 
       {/* Error Alert */}
@@ -210,6 +197,10 @@ export default function AISummaries() {
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Total Summaries</p>
           <p className="text-2xl font-semibold">{summaries.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            🎤 {summaries.filter((s) => s.response_type === 'voice').length} voice · 
+            📱 {summaries.filter((s) => s.response_type === 'ussd').length} USSD
+          </p>
         </div>
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Positive Sentiment</p>
@@ -245,12 +236,8 @@ export default function AISummaries() {
             <Brain className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-lg font-medium mb-2">No AI Summaries Yet</p>
             <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-              Process voice recordings to generate AI summaries and insights
+              AI summaries will appear here once responses are processed by the system
             </p>
-            <Button onClick={handleProcessAI} disabled={processing}>
-              <Play className="mr-2 h-4 w-4" />
-              Process Recordings
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -270,6 +257,9 @@ export default function AISummaries() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Badge className={getResponseTypeColor(summary.response_type)}>
+                      {getResponseTypeIcon(summary.response_type)} {summary.response_type || 'response'}
+                    </Badge>
                     <Badge className={getSentimentColor(summary.sentiment)}>
                       {getSentimentIcon(summary.sentiment)} {summary.sentiment}
                     </Badge>

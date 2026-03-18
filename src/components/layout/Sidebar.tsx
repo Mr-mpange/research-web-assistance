@@ -7,6 +7,8 @@ import {
   Settings,
   ChevronLeft,
   UserCog,
+  FlaskConical,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,9 +29,9 @@ const adminNavigation = [
 // Researcher navigation
 const researcherNavigation = [
   { name: "Dashboard Overview", href: "/dashboard", icon: LayoutDashboard, roles: ['researcher', 'viewer'] },
-  { name: "Research Questions", href: "/questions", icon: Users, roles: ['researcher'] },
+  { name: "Research Questions", href: "/questions", icon: FlaskConical, roles: ['researcher'] },
   { name: "Participants", href: "/participants", icon: Users, roles: ['researcher', 'viewer'] },
-  { name: "SMS Notifications", href: "/sms", icon: MessageSquare, roles: ['researcher'] },
+  { name: "AI Summaries", href: "/summaries", icon: Brain, roles: ['researcher', 'viewer'] },
 ];
 
 const bottomNavigation = [
@@ -39,15 +41,13 @@ const bottomNavigation = [
 export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
-  
-  // Determine which navigation to show based on role
+
   const navigation = user?.role === 'admin' ? adminNavigation : researcherNavigation;
-  
-  // Filter navigation items based on user role
-  const filteredNavigation = navigation.filter(item => 
+
+  const filteredNavigation = navigation.filter(item =>
     item.roles.includes(user?.role || 'viewer')
   );
-  
+
   const filteredBottomNavigation = bottomNavigation.filter(item =>
     item.roles.includes(user?.role || 'viewer')
   );
@@ -59,30 +59,62 @@ export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
         isCollapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Sidebar Header */}
-      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
+      {/* Sidebar Header – Brand */}
+      <div className={cn(
+        "flex h-14 items-center border-b border-sidebar-border px-3",
+        isCollapsed ? "justify-center" : "gap-3"
+      )}>
+        {/* Logo mark */}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sidebar-primary to-accent text-white font-bold text-sm shadow-sm">
+          RH
+        </div>
+
         {!isCollapsed && (
-          <span className="text-sm font-semibold text-sidebar-foreground">Navigation</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-sidebar-accent-foreground truncate">ResearchHub</p>
+            <p className="text-[10px] text-sidebar-muted truncate">Kenya Health Survey</p>
+          </div>
         )}
+
         <Button
           variant="ghost"
           size="icon"
           onClick={onCollapse}
           className={cn(
-            "h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            isCollapsed && "mx-auto"
+            "h-7 w-7 shrink-0 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            isCollapsed && "hidden"
           )}
         >
-          <ChevronLeft
-            className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}
-          />
+          <ChevronLeft className="h-4 w-4" />
         </Button>
       </div>
 
+      {/* Collapsed expand button */}
+      {isCollapsed && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCollapse}
+          className="mx-auto mt-1 h-7 w-7 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <ChevronLeft className="h-4 w-4 rotate-180" />
+        </Button>
+      )}
+
+      {/* Section label */}
+      {!isCollapsed && (
+        <div className="px-4 pt-4 pb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-muted">
+            {user?.role === 'admin' ? 'Administration' : 'Research'}
+          </p>
+        </div>
+      )}
+
       {/* Main Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-1">
         {filteredNavigation.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive = location.pathname === item.href ||
+            (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
           return (
             <NavLink
               key={item.name}
@@ -90,13 +122,16 @@ export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
               className={cn(
                 "sidebar-link",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
+                  ? "active bg-sidebar-accent text-sidebar-primary"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 isCollapsed && "justify-center px-2"
               )}
               title={isCollapsed ? item.name : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
+              <item.icon className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                isActive ? "text-sidebar-primary" : "text-sidebar-muted"
+              )} />
               {!isCollapsed && <span>{item.name}</span>}
             </NavLink>
           );
@@ -104,7 +139,7 @@ export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="border-t border-sidebar-border p-2">
+      <div className="border-t border-sidebar-border px-2 py-2 space-y-0.5">
         {filteredBottomNavigation.map((item) => {
           const isActive = location.pathname === item.href;
           return (
@@ -114,28 +149,28 @@ export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
               className={cn(
                 "sidebar-link",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
+                  ? "active bg-sidebar-accent text-sidebar-primary"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 isCollapsed && "justify-center px-2"
               )}
               title={isCollapsed ? item.name : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
+              <item.icon className={cn(
+                "h-4 w-4 shrink-0",
+                isActive ? "text-sidebar-primary" : "text-sidebar-muted"
+              )} />
               {!isCollapsed && <span>{item.name}</span>}
             </NavLink>
           );
         })}
       </div>
 
-      {/* Project Info */}
+      {/* Version pill */}
       {!isCollapsed && (
-        <div className="border-t border-sidebar-border p-4">
-          <p className="text-xs text-sidebar-muted">
-            Kenya Health Survey 2024
-          </p>
-          <p className="text-xs text-sidebar-muted">
-            Version 2.1.0
-          </p>
+        <div className="border-t border-sidebar-border px-4 py-3">
+          <span className="inline-flex items-center rounded-full bg-sidebar-accent px-2.5 py-0.5 text-[10px] font-medium text-sidebar-muted">
+            v2.1.0
+          </span>
         </div>
       )}
     </aside>
