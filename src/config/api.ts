@@ -2,7 +2,7 @@
 
 // Backend API URL - Update this with your Google Cloud Run URL
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  'https://research-system-864580156744.us-central1.run.app';
+  'https://africastalking-api-864580156744.us-central1.run.app';
 
 // API Endpoints
 export const API_ENDPOINTS = {
