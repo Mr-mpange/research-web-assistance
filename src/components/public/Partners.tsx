@@ -1,30 +1,12 @@
 import { FadeInSection } from "./FadeInSection";
 
 const partners = [
-  { 
-    name: "World Bank", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/8/87/The_World_Bank_logo.svg",
-  },
-  { 
-    name: "UNICEF", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/e/ed/Logo_of_UNICEF.svg",
-  },
-  { 
-    name: "Bill & Melinda Gates Foundation", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/e/e3/Bill_%26_Melinda_Gates_Foundation_logo.svg",
-  },
-  { 
-    name: "USAID", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/7/79/USAID-Identity.svg",
-  },
-  { 
-    name: "African Development Bank", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/9/9f/African_Development_Bank_Logo.svg",
-  },
-  { 
-    name: "Global Fund", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/1/1f/The_Global_Fund_to_Fight_AIDS%2C_Tuberculosis_and_Malaria_logo.svg",
-  },
+  { name: "World Bank", abbr: "WB" },
+  { name: "UNICEF", abbr: "UNICEF" },
+  { name: "Gates Foundation", abbr: "BMGF" },
+  { name: "USAID", abbr: "USAID" },
+  { name: "African Dev Bank", abbr: "AfDB" },
+  { name: "The Global Fund", abbr: "GF" },
 ];
 
 export function Partners() {
@@ -39,14 +21,15 @@ export function Partners() {
             {partners.map((partner) => (
               <div
                 key={partner.name}
-                className="flex items-center justify-center h-12 w-28 md:w-36 grayscale hover:grayscale-0 opacity-60 hover:opacity-100 transition-all"
+                className="flex flex-col items-center justify-center h-14 w-28 md:w-36 opacity-50 hover:opacity-100 transition-all cursor-default"
                 title={partner.name}
               >
-                <img
-                  src={partner.logo}
-                  alt={partner.name}
-                  className="h-8 md:h-10 w-auto object-contain"
-                />
+                <span className="text-base md:text-lg font-bold tracking-tight text-foreground">
+                  {partner.abbr}
+                </span>
+                <span className="text-[10px] text-muted-foreground text-center leading-tight mt-0.5">
+                  {partner.name}
+                </span>
               </div>
             ))}
           </div>
