@@ -1,12 +1,30 @@
 import { FadeInSection } from "./FadeInSection";
 
 const partners = [
-  { name: "World Bank", abbr: "WB" },
-  { name: "UNICEF", abbr: "UNICEF" },
-  { name: "Gates Foundation", abbr: "BMGF" },
-  { name: "USAID", abbr: "USAID" },
-  { name: "African Dev Bank", abbr: "AfDB" },
-  { name: "The Global Fund", abbr: "GF" },
+  {
+    name: "World Bank",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/8/87/The_World_Bank_logo.svg",
+  },
+  {
+    name: "UNICEF",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/e/ed/Logo_of_UNICEF.svg",
+  },
+  {
+    name: "Bill & Melinda Gates Foundation",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/e/e3/Bill_%26_Melinda_Gates_Foundation_logo.svg",
+  },
+  {
+    name: "USAID",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/7/79/USAID-Identity.svg",
+  },
+  {
+    name: "African Development Bank",
+    logo: "https://upload.wikimedia.org/wikipedia/en/3/3c/African_Development_Bank_Logo.svg",
+  },
+  {
+    name: "Global Fund",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/b/b8/The_Global_Fund_logo.svg",
+  },
 ];
 
 export function Partners() {
@@ -21,13 +39,25 @@ export function Partners() {
             {partners.map((partner) => (
               <div
                 key={partner.name}
-                className="flex flex-col items-center justify-center h-14 w-28 md:w-36 opacity-50 hover:opacity-100 transition-all cursor-default"
+                className="flex items-center justify-center h-12 w-28 md:w-36 grayscale hover:grayscale-0 opacity-60 hover:opacity-100 transition-all"
                 title={partner.name}
               >
-                <span className="text-base md:text-lg font-bold tracking-tight text-foreground">
-                  {partner.abbr}
-                </span>
-                <span className="text-[10px] text-muted-foreground text-center leading-tight mt-0.5">
+                <img
+                  src={partner.logo}
+                  alt={partner.name}
+                  loading="lazy"
+                  className="h-8 md:h-10 w-auto object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    img.style.display = "none";
+                    const fallback = img.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = "block";
+                  }}
+                />
+                <span
+                  style={{ display: "none" }}
+                  className="text-xs font-semibold text-muted-foreground text-center leading-tight"
+                >
                   {partner.name}
                 </span>
               </div>
