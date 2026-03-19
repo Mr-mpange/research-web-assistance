@@ -342,9 +342,11 @@ export default function ResearchQuestions() {
   // Filter questions based on user role
   let visibleQuestions = questions;
   
-  // If researcher (not admin), only show their own questions
+  // If researcher (not admin), show their own questions + unassigned ones
   if (isResearcher && !isAdmin && currentUserId) {
-    visibleQuestions = questions.filter((q) => q.researcher_id === currentUserId);
+    visibleQuestions = questions.filter(
+      (q) => q.researcher_id === currentUserId || !q.researcher_id
+    );
   }
 
   const filtered = visibleQuestions.filter((q) => {
