@@ -1,106 +1,205 @@
-import { useState, useEffect } from "react";
-import { Brain, Loader2, AlertCircle, CheckCircle, TrendingUp, MessageSquare } from "lucide-react";
-import { useBackendApi } from "@/hooks/useBackendApi";
+import { useState, useEffect, useCallback } from "react";
+import { Brain, Loader2, AlertCircle, RefreshCw, TrendingUp, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { projectsService } from "@/services/apiService";
+
+interface Insight {
+  summary: string;
+  themes: Array<{ theme: string; percentage: number; keywords: string[] }>;
+  sentiment: "positive" | "negative" | "neutral";
+  key_insights: string[];
+}
 
 interface AISummary {
   id: string;
-  response_id: string;
-  response_type?: 'voice' | 'ussd';
+  project_id: string;
+  question_id: string | null;
   summary_text: string;
-  key_points: string[];
-  themes: Array<{ name: string; relevance: number; keywords: string[] }>;
-  sentiment: 'positive' | 'negative' | 'neutral';
-  confidence_score: number;
-  word_count: number;
+  insights_json: string | Insight;
   created_at: string;
-  phone_number?: string;
   question_title?: string;
-  transcribed_text?: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  question_count: number;
+  response_count: number;
+}
+
+interface Question {
+  id: string;
+  title: string;
+  question_text: string;
+}
+
+function parseInsights(raw: string | Insight | null): Insight | null {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw as Insight;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+const sentimentColor = (s: string) =>
+  s === "positive" ? "bg-green-100 text-green-800" :
+  s === "negative" ? "bg-red-100 text-red-800" :
+  "bg-gray-100 text-gray-700";
+
+const sentimentEmoji = (s: string) =>
+  s === "positive" ? "😊" : s === "negative" ? "😟" : "😐";
+
+function SummaryCard({ summary }: { summary: AISummary }) {
+  const [expanded, setExpanded] = useState(false);
+  const insights = parseInsights(summary.insights_json);
+
+  return (
+    <Card className="mb-3">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-sm font-semibold">
+              {summary.question_title || "Project-level Summary"}
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              {new Date(summary.created_at).toLocaleString()}
+            </CardDescription>
+          </div>
+          {insights?.sentiment && (
+            <Badge className={sentimentColor(insights.sentiment)}>
+              {sentimentEmoji(insights.sentiment)} {insights.sentiment}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{summary.summary_text}</p>
+
+        {insights && (
+          <>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {expanded ? "Hide details" : "Show details"}
+            </button>
+
+            {expanded && (
+              <div className="space-y-3 pt-1">
+                {insights.key_insights?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3" /> Key Insights
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {insights.key_insights.map((k, i) => (
+                        <li key={i} className="text-xs text-muted-foreground">{k}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {insights.themes?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-1 flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" /> Themes
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {insights.themes.map((t, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {t.theme} {t.percentage != null ? `(${t.percentage}%)` : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AISummaries() {
-  const [summaries, setSummaries] = useState<AISummary[]>([]);
-  const [aiStatus, setAiStatus] = useState<any>(null);
-  const { loading, error, fetchResponses, getAIStatus } = useBackendApi();
+  const { toast } = useToast();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [summariesByProject, setSummariesByProject] = useState<Record<string, AISummary[]>>({});
+  const [generating, setGenerating] = useState<Record<string, boolean>>({});
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSummaries();
-    loadAIStatus();
+  const loadProjects = useCallback(async () => {
+    setLoadingAll(true);
+    setError(null);
+    try {
+      const res = await projectsService.list();
+      if (!res.success) throw new Error((res as any).error || "Failed to load projects");
+      const projs: Project[] = (res as any).data?.projects || [];
+      setProjects(projs);
+
+      // Load summaries for each project
+      const map: Record<string, AISummary[]> = {};
+      await Promise.all(
+        projs.map(async (p) => {
+          const r = await projectsService.getAISummary(p.id);
+          map[p.id] = (r as any).data?.summaries || [];
+        })
+      );
+      setSummariesByProject(map);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoadingAll(false);
+    }
   }, []);
 
-  const loadSummaries = async () => {
-    // Fetch both voice and USSD responses with AI summaries
-    const result = await fetchResponses({ includeAI: true });
-    if (result.success) {
-      const responsesData = (result as any).data?.responses || (result as any).data || [];
-      // Filter only responses that have AI summaries
-      const withSummaries = responsesData.filter((r: any) => r.summary_text);
-      setSummaries(withSummaries);
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  const generateForProject = async (projectId: string) => {
+    setGenerating(g => ({ ...g, [projectId]: true }));
+    try {
+      // Get questions for this project
+      const qRes = await projectsService.getQuestions(projectId);
+      const questions: Question[] = (qRes as any).data?.questions || [];
+
+      // Generate project-level summary
+      await projectsService.generateAI(projectId, undefined);
+
+      // Generate per-question summaries
+      for (const q of questions) {
+        await projectsService.generateAI(projectId, q.id);
+      }
+
+      // Reload summaries for this project
+      const r = await projectsService.getAISummary(projectId);
+      setSummariesByProject(prev => ({ ...prev, [projectId]: (r as any).data?.summaries || [] }));
+
+      toast({ title: "AI summaries generated", description: `Done for ${questions.length} question(s)` });
+    } catch (e: any) {
+      toast({ title: "Generation failed", description: e.message, variant: "destructive" });
+    } finally {
+      setGenerating(g => ({ ...g, [projectId]: false }));
     }
   };
 
-  const loadAIStatus = async () => {
-    const result = await getAIStatus();
-    if (result.success) {
-      setAiStatus((result as any).data?.status || (result as any).data);
+  const generateAll = async () => {
+    setGeneratingAll(true);
+    for (const p of projects) {
+      await generateForProject(p.id);
     }
+    setGeneratingAll(false);
+    toast({ title: "All summaries generated" });
   };
 
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'negative':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
-    }
-  };
+  const totalSummaries = Object.values(summariesByProject).reduce((s, arr) => s + arr.length, 0);
 
-  const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive':
-        return '😊';
-      case 'negative':
-        return '😟';
-      default:
-        return '😐';
-    }
-  };
-
-  const getResponseTypeColor = (type?: string) => {
-    switch (type) {
-      case 'voice':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'ussd':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
-    }
-  };
-
-  const getResponseTypeIcon = (type?: string) => {
-    switch (type) {
-      case 'voice':
-        return '🎤';
-      case 'ussd':
-        return '📱';
-      default:
-        return '💬';
-    }
-  };
-
-  if (loading && summaries.length === 0) {
+  if (loadingAll) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -110,17 +209,24 @@ export default function AISummaries() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">AI Summaries</h1>
+          <h1 className="text-xl font-semibold">AI Summaries</h1>
           <p className="text-sm text-muted-foreground">
-            AI-generated summaries and insights from voice and USSD responses
+            Gemini-generated insights from research responses, grouped by project
           </p>
         </div>
+        <Button
+          onClick={generateAll}
+          disabled={generatingAll || projects.length === 0}
+          size="sm"
+          className="gap-2"
+        >
+          {generatingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+          Generate All
+        </Button>
       </div>
 
-      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -128,203 +234,76 @@ export default function AISummaries() {
         </Alert>
       )}
 
-      {/* AI Status Card */}
-      {aiStatus && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              AI Service Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Gemini AI</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {aiStatus.gemini?.available ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">Available</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                      <span className="text-sm">Not configured</span>
-                    </>
-                  )}
-                </div>
-                {aiStatus.gemini?.model && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Model: {aiStatus.gemini.model}
-                  </p>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">OpenAI</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {aiStatus.openai?.available ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">Available</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                      <span className="text-sm">Not configured</span>
-                    </>
-                  )}
-                </div>
-                {aiStatus.openai?.model && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Model: {aiStatus.openai.model}
-                  </p>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Preferred Service</p>
-                <p className="text-sm font-medium mt-1 capitalize">
-                  {aiStatus.preferred || 'Not set'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary Statistics */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      {/* Stats row */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="stat-card">
+          <p className="text-sm font-medium text-muted-foreground">Projects</p>
+          <p className="text-2xl font-semibold">{projects.length}</p>
+        </div>
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Total Summaries</p>
-          <p className="text-2xl font-semibold">{summaries.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            🎤 {summaries.filter((s) => s.response_type === 'voice').length} voice · 
-            📱 {summaries.filter((s) => s.response_type === 'ussd').length} USSD
-          </p>
+          <p className="text-2xl font-semibold">{totalSummaries}</p>
         </div>
         <div className="stat-card">
           <p className="text-sm font-medium text-muted-foreground">Positive Sentiment</p>
           <p className="text-2xl font-semibold">
-            {summaries.filter((s) => s.sentiment === 'positive').length}
-          </p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm font-medium text-muted-foreground">Negative Sentiment</p>
-          <p className="text-2xl font-semibold">
-            {summaries.filter((s) => s.sentiment === 'negative').length}
-          </p>
-        </div>
-        <div className="stat-card">
-          <p className="text-sm font-medium text-muted-foreground">Avg Confidence</p>
-          <p className="text-2xl font-semibold">
-            {summaries.length > 0
-              ? Math.round(
-                  (summaries.reduce((sum, s) => sum + (s.confidence_score || 0), 0) /
-                    summaries.length) *
-                    100
-                )
-              : 0}
-            %
+            {Object.values(summariesByProject).flat().filter(s => {
+              const ins = parseInsights(s.insights_json);
+              return ins?.sentiment === "positive";
+            }).length}
           </p>
         </div>
       </div>
 
-      {/* Summaries List */}
-      {summaries.length === 0 ? (
+      {/* Per-project sections */}
+      {projects.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Brain className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-2">No AI Summaries Yet</p>
-            <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-              AI summaries will appear here once responses are processed by the system
-            </p>
+            <p className="text-lg font-medium">No projects found</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {summaries.map((summary) => (
-            <Card key={summary.id}>
+        projects.map(project => {
+          const summaries = summariesByProject[project.id] || [];
+          const isGenerating = generating[project.id];
+
+          return (
+            <Card key={project.id}>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-base">
-                      {summary.question_title || 'Voice Response'}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2 mt-1">
-                      <span>{summary.phone_number || 'Unknown'}</span>
-                      <span>•</span>
-                      <span>{new Date(summary.created_at).toLocaleDateString()}</span>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">{project.title}</CardTitle>
+                    <CardDescription>
+                      {project.question_count} question(s) · {project.response_count} response(s) · {summaries.length} summary(ies)
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getResponseTypeColor(summary.response_type)}>
-                      {getResponseTypeIcon(summary.response_type)} {summary.response_type || 'response'}
-                    </Badge>
-                    <Badge className={getSentimentColor(summary.sentiment)}>
-                      {getSentimentIcon(summary.sentiment)} {summary.sentiment}
-                    </Badge>
-                    <Badge variant="outline">
-                      {Math.round((summary.confidence_score || 0) * 100)}% confidence
-                    </Badge>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateForProject(project.id)}
+                    disabled={isGenerating}
+                    className="gap-2"
+                  >
+                    {isGenerating
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <RefreshCw className="h-3 w-3" />}
+                    {isGenerating ? "Generating…" : summaries.length > 0 ? "Regenerate" : "Generate"}
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Summary Text */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    Summary
-                  </h4>
-                  <p className="text-sm text-muted-foreground">{summary.summary_text}</p>
-                </div>
-
-                {/* Key Points */}
-                {summary.key_points && summary.key_points.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold mb-2">Key Points</h4>
-                    <ul className="list-disc list-inside space-y-1">
-                      {summary.key_points.map((point, index) => (
-                        <li key={index} className="text-sm text-muted-foreground">
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Themes */}
-                {summary.themes && summary.themes.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Themes
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {summary.themes.map((theme, index) => (
-                        <Badge key={index} variant="secondary">
-                          {theme.name} ({Math.round(theme.relevance * 100)}%)
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Transcription (collapsible) */}
-                {summary.transcribed_text && (
-                  <details className="text-sm">
-                    <summary className="cursor-pointer font-semibold mb-2">
-                      View Full Transcription
-                    </summary>
-                    <p className="text-muted-foreground mt-2 p-3 bg-muted rounded-md">
-                      {summary.transcribed_text}
-                    </p>
-                  </details>
+              <CardContent>
+                {summaries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No summaries yet. Click Generate to process responses with AI.
+                  </p>
+                ) : (
+                  summaries.map(s => <SummaryCard key={s.id} summary={s} />)
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          );
+        })
       )}
     </div>
   );
