@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Mic, Clock, FileText, HelpCircle, Loader2, AlertCircle } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { InterviewsChart } from "@/components/dashboard/InterviewsChart";
 import { ResponseDistributionChart } from "@/components/dashboard/ResponseDistributionChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
-import { useBackendApi } from "@/hooks/useBackendApi";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { analyticsService, questionsService } from "@/services/apiService";
 
 export default function DashboardOverview() {
   const [stats, setStats] = useState({
@@ -16,42 +16,55 @@ export default function DashboardOverview() {
     totalMinutes: 0,
     summariesGenerated: 0,
   });
-  
-  const { loading, error, fetchAnalytics, fetchQuestions, fetchResponses } = useBackendApi();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Run both requests in parallel
+      const [analyticsResult, questionsResult] = await Promise.all([
+        analyticsService.summary(),
+        questionsService.list({ active: true }),
+      ]);
+
+      if (analyticsResult.success) {
+        // Backend returns { success, analytics: { responseStats, topQuestions } }
+        const analytics = (analyticsResult as any).analytics || analyticsResult.data?.analytics || analyticsResult.data;
+        const rs = analytics?.responseStats;
+        setStats(prev => ({
+          ...prev,
+          totalResponses: parseInt(rs?.total_responses || 0),
+          voiceResponses: parseInt(rs?.voice_responses || 0),
+          ussdResponses: parseInt(rs?.ussd_responses || 0),
+          totalMinutes: Math.round(parseInt(rs?.voice_responses || 0) * 3.5),
+          summariesGenerated: parseInt(analytics?.aiStats?.total_summaries || 0),
+        }));
+      } else {
+        setError((analyticsResult as any).error || 'Failed to load analytics');
+      }
+
+      if (questionsResult.success) {
+        // Backend returns { success, data: { questions: [...] } }
+        const questions = (questionsResult as any).data?.questions
+          || (questionsResult as any).questions
+          || questionsResult.data;
+        setStats(prev => ({
+          ...prev,
+          activeQuestions: Array.isArray(questions) ? questions.length : prev.activeQuestions,
+        }));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        // Fetch analytics data
-        const analyticsResult = await fetchAnalytics();
-        if (analyticsResult.success && analyticsResult.data) {
-          const data = analyticsResult.data.analytics || analyticsResult.data;
-          setStats({
-            totalResponses: data.responseStats?.total_responses || 0,
-            voiceResponses: data.responseStats?.voice_responses || 0,
-            ussdResponses: data.responseStats?.ussd_responses || 0,
-            activeQuestions: data.responseStats?.questions_answered || 0,
-            totalMinutes: Math.round((data.responseStats?.voice_responses || 0) * 3.5), // Estimate
-            summariesGenerated: data.aiStats?.total_summaries || 0,
-          });
-        }
-
-        // Fetch questions to get active count
-        const questionsResult = await fetchQuestions({ active: true });
-        if (questionsResult.success && questionsResult.data) {
-          const questions = questionsResult.data.questions || questionsResult.data;
-          setStats(prev => ({
-            ...prev,
-            activeQuestions: Array.isArray(questions) ? questions.length : prev.activeQuestions,
-          }));
-        }
-      } catch (err) {
-        console.error('Error loading dashboard data:', err);
-      }
-    };
-
     loadDashboardData();
-  }, [fetchAnalytics, fetchQuestions]);
+  }, [loadDashboardData]);
 
   if (loading) {
     return (

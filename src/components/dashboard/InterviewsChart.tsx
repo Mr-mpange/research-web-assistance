@@ -32,9 +32,9 @@ export function InterviewsChart() {
         granularity: 'day'
       });
 
-      if (result.success && result.data) {
-        const analytics = result.data.analytics || result.data;
-        const trends = analytics.trends || [];
+      if (result.success) {
+        const analytics = result.analytics || result.data?.analytics || result.data;
+        const trends = analytics?.trends || [];
 
         // Format data for chart
         const chartData = trends.map((trend: any) => {

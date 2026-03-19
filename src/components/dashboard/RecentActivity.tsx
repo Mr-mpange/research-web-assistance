@@ -64,8 +64,9 @@ export function RecentActivity() {
         includeAI: true,
       });
 
-      if (result.success && result.data) {
-        const responses = result.data.responses || result.data;
+      if (result.success) {
+        // Backend returns { success, responses: [...], pagination: {...} }
+        const responses = result.responses || result.data?.responses || result.data;
         
         if (Array.isArray(responses)) {
           const activityList: Activity[] = [];

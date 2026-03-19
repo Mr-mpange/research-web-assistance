@@ -31,9 +31,9 @@ export function ResponseDistributionChart() {
     try {
       const result = await fetchAnalytics();
 
-      if (result.success && result.data) {
-        const analytics = result.data.analytics || result.data;
-        const topQuestions = analytics.topQuestions || [];
+      if (result.success) {
+        const analytics = result.analytics || result.data?.analytics || result.data;
+        const topQuestions = analytics?.topQuestions || [];
 
         // Format data for pie chart
         const chartData = topQuestions.map((q: any) => ({

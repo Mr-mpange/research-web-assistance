@@ -183,7 +183,7 @@ export default function ResearchQuestions() {
 
   // ── Submit ──────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (keepOpen = false) => {
     if (!validateForm()) return;
 
     // For researchers creating new questions, auto-assign to themselves
@@ -212,16 +212,23 @@ export default function ResearchQuestions() {
         } else {
           toast({ title: "Error", description: result.error || "Failed to update", variant: "destructive" });
         }
+        closeDialog();
       } else {
         const result = await createQuestion({ ...payload, is_active: true });
         if (result.success) {
           toast({ title: "Success", description: "Question created successfully" });
           await loadQuestions();
+          if (keepOpen) {
+            // Reset form but keep dialog open for another entry
+            setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: formData.researcher_id });
+            setErrors({});
+          } else {
+            closeDialog();
+          }
         } else {
           toast({ title: "Error", description: result.error || "Failed to create", variant: "destructive" });
         }
       }
-      closeDialog();
     } catch {
       toast({ title: "Error", description: "An unexpected error occurred", variant: "destructive" });
     }
@@ -590,7 +597,13 @@ export default function ResearchQuestions() {
 
               <DialogFooter>
                 <Button variant="outline" onClick={closeDialog}>Cancel</Button>
-                <Button onClick={handleSubmit}>
+                {!editingQuestion && (
+                  <Button variant="secondary" onClick={() => handleSubmit(true)}>
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Save & Add Another
+                  </Button>
+                )}
+                <Button onClick={() => handleSubmit()}>
                   {editingQuestion ? "Save Changes" : "Create Question"}
                 </Button>
               </DialogFooter>
