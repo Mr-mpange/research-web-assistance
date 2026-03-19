@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
     submitResponse: (id: string) => `/api/projects/${id}/responses`,
     aiSummary: (id: string) => `/api/projects/${id}/ai-summary`,
     generateAI: (id: string) => `/api/projects/${id}/ai-summary/generate`,
+    rewards: (id: string) => `/api/projects/${id}/rewards`,
   },
   
   // USSD & Voice (for testing)

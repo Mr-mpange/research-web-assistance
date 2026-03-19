@@ -40,6 +40,7 @@ import ResearchMarketplace from "./pages/ResearchMarketplace";
 import ProjectQuestionFlow from "./pages/ProjectQuestionFlow";
 import Projects from "./pages/Projects";
 import ProjectInsights from "./pages/ProjectInsights";
+import AirtimeRewards from "./pages/AirtimeRewards";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const queryClient = new QueryClient();
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="sms" element={<SMSManagement />} />
+              <Route path="rewards" element={<AirtimeRewards />} />
             </Route>
             
             {/* Admin-only User Management */}

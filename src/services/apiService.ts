@@ -275,4 +275,7 @@ export const projectsService = {
       method: 'POST',
       body: JSON.stringify({ question_id }),
     }),
+
+  getRewards: async (id: string) =>
+    apiRequest(`/api/projects/${id}/rewards`),
 };

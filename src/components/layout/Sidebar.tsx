@@ -9,6 +9,7 @@ import {
   UserCog,
   FlaskConical,
   Brain,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const adminNavigation = [
   { name: "Admin Dashboard", href: "/admin", icon: Shield, roles: ['admin'] },
   { name: "User Management", href: "/users", icon: UserCog, roles: ['admin'] },
   { name: "SMS Management", href: "/sms", icon: MessageSquare, roles: ['admin'] },
+  { name: "Airtime Rewards", href: "/admin/rewards", icon: Gift, roles: ['admin'] },
 ];
 
 // Researcher navigation
