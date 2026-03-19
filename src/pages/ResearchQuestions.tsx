@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Loader2, AlertCircle,
-  ChevronDown, ChevronRight, User2, FlaskConical, Users
+  ChevronDown, ChevronRight, User2, FlaskConical, FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,9 @@ interface ResearchQuestion {
   language?: string;
   researcher_id?: string;
   researcher_name?: string;
+  project_id?: string;
+  project_title?: string;
+  order_index?: number;
 }
 
 interface Researcher {
@@ -61,6 +64,12 @@ interface Researcher {
   full_name: string;
   username: string;
   role: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -96,6 +105,7 @@ export default function ResearchQuestions() {
   const { user } = useAuth();
   const [questions, setQuestions] = useState<ResearchQuestion[]>([]);
   const [researchers, setResearchers] = useState<Researcher[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<ResearchQuestion | null>(null);
   const [languageFilter, setLanguageFilter] = useState<string>("all");
@@ -115,6 +125,7 @@ export default function ResearchQuestions() {
     question_text_sw: "",
     language: "en",
     researcher_id: "",
+    project_id: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { loading, error, fetchQuestions, createQuestion, updateQuestion, deleteQuestion } = useBackendApi();
@@ -123,6 +134,7 @@ export default function ResearchQuestions() {
   useEffect(() => {
     loadQuestions();
     loadResearchers();
+    loadProjects();
   }, []);
 
   // ── Data loading ────────────────────────────────────────────────────────────
@@ -137,9 +149,20 @@ export default function ResearchQuestions() {
       const data = await res.json();
       const all: Researcher[] = Array.isArray(data) ? data : data.users || [];
       setResearchers(all.filter((u) => u.role === "researcher"));
-    } catch {
-      /* non-critical */
-    }
+    } catch { /* non-critical */ }
+  };
+
+  const loadProjects = async () => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const list: Project[] = data.projects || data.data || (Array.isArray(data) ? data : []);
+      setProjects(list);
+    } catch { /* non-critical */ }
   };
 
   const loadQuestions = async () => {
@@ -220,7 +243,7 @@ export default function ResearchQuestions() {
           await loadQuestions();
           if (keepOpen) {
             // Reset form but keep dialog open for another entry
-            setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: formData.researcher_id });
+            setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: formData.researcher_id, project_id: formData.project_id });
             setErrors({});
           } else {
             closeDialog();
@@ -263,6 +286,7 @@ export default function ResearchQuestions() {
       question_text_sw: q.question_text_sw || "",
       language: q.language || "en",
       researcher_id: q.researcher_id || "",
+      project_id: q.project_id || "",
     });
     setIsDialogOpen(true);
   };
@@ -323,14 +347,14 @@ export default function ResearchQuestions() {
 
   const openNewDialog = () => {
     setEditingQuestion(null);
-    setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: "" });
+    setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: "", project_id: "" });
     setErrors({});
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
-    setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: "" });
+    setFormData({ title: "", title_sw: "", category: "", description: "", question_text: "", question_text_sw: "", language: "en", researcher_id: "", project_id: "" });
     setEditingQuestion(null);
   };
 
@@ -355,17 +379,25 @@ export default function ResearchQuestions() {
     return langOk && resOk;
   });
 
-  // Group by researcher
+  // Group by project title
   type Group = { key: string; label: string; questions: ResearchQuestion[] };
 
   const groupMap: Record<string, Group> = {};
   for (const q of filtered) {
-    const key = q.researcher_id || "__unassigned__";
-    const label = q.researcher_name ||
-      researchers.find((r) => r.id === q.researcher_id)?.full_name ||
-      (q.researcher_id ? q.researcher_id : "Unassigned");
+    const key = q.project_id || "__unassigned__";
+    const label = q.project_title
+      || projects.find((p) => p.id === q.project_id)?.title
+      || (q.project_id ? q.project_id : "No Project");
     if (!groupMap[key]) groupMap[key] = { key, label, questions: [] };
     groupMap[key].questions.push(q);
+  }
+
+  // Sort questions within each group by order_index, then created_at
+  for (const g of Object.values(groupMap)) {
+    g.questions.sort((a, b) =>
+      (a.order_index ?? 999) - (b.order_index ?? 999) ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
   }
 
   // Assigned groups first, then unassigned
@@ -463,6 +495,33 @@ export default function ResearchQuestions() {
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
                   {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+                </div>
+
+                {/* Project assignment */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="project">Project</Label>
+                  <Select
+                    value={formData.project_id}
+                    onValueChange={(v) => setFormData({ ...formData, project_id: v })}
+                  >
+                    <SelectTrigger id="project">
+                      <SelectValue placeholder="Select project (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">— No project —</SelectItem>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                            {p.title}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Questions are numbered Q1, Q2, Q3… within each project.
+                  </p>
                 </div>
 
                 {/* Assign to Researcher - only show for admins */}
@@ -700,8 +759,8 @@ export default function ResearchQuestions() {
                       : "bg-gradient-to-br from-primary to-accent text-white"
                   )}>
                     {isUnassigned
-                      ? <Users className="h-4 w-4" />
-                      : group.label.charAt(0).toUpperCase()}
+                      ? <FolderOpen className="h-4 w-4" />
+                      : <FolderOpen className="h-4 w-4" />}
                   </div>
 
                   <div className="flex-1 text-left">
@@ -709,7 +768,7 @@ export default function ResearchQuestions() {
                       "text-sm font-semibold",
                       isUnassigned ? "text-muted-foreground italic" : "text-foreground"
                     )}>
-                      {isUnassigned ? "Unassigned Questions" : group.label}
+                      {isUnassigned ? "No Project Assigned" : group.label}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {group.questions.length} question{group.questions.length !== 1 ? "s" : ""}
@@ -735,18 +794,24 @@ export default function ResearchQuestions() {
                     <Table className="data-table">
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Title</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Language</TableHead>
-                          <TableHead>Description</TableHead>
+                          <TableHead>Question Text</TableHead>
                           <TableHead>Responses</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {group.questions.map((q) => (
+                        {group.questions.map((q, idx) => (
                           <TableRow key={q.id} className="hover:bg-muted/30 transition-colors">
+                            <TableCell>
+                              <span className="inline-flex items-center justify-center h-6 w-8 rounded bg-primary/10 text-primary text-xs font-bold">
+                                Q{idx + 1}
+                              </span>
+                            </TableCell>
                             <TableCell className="font-medium text-foreground">{q.title}</TableCell>
                             <TableCell>
                               <CategoryBadge category={q.category} />
@@ -755,7 +820,7 @@ export default function ResearchQuestions() {
                               <LangBadge lang={q.language} />
                             </TableCell>
                             <TableCell className="max-w-xs truncate text-muted-foreground text-xs">
-                              {q.description}
+                              {q.question_text || q.description}
                             </TableCell>
                             <TableCell className="text-sm">
                               {(q.response_count || 0).toLocaleString()}
