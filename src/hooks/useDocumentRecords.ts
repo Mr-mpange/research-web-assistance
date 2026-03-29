@@ -4,8 +4,8 @@ import { documentStore } from "@/store/documentStore";
 export function useDocumentRecords() {
   const records = useSyncExternalStore(
     documentStore.subscribe,
-    documentStore.getAll,
-    documentStore.getAll
+    documentStore.getSnapshot,
+    documentStore.getSnapshot
   );
   return records;
 }

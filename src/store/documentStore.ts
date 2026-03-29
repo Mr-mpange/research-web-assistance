@@ -37,15 +37,17 @@ function saveRecords(records: DocumentRecord[]): void {
 }
 
 let records: DocumentRecord[] = loadRecords();
+let snapshot: DocumentRecord[] = records;
 let listeners: Array<() => void> = [];
 
 function notify() {
+  snapshot = [...records];
   listeners.forEach((l) => l());
 }
 
 export const documentStore = {
-  getAll(): DocumentRecord[] {
-    return [...records];
+  getSnapshot(): DocumentRecord[] {
+    return snapshot;
   },
 
   add(record: DocumentRecord): void {
