@@ -11,6 +11,7 @@ import {
   Clock,
   Unlock,
   Database,
+  ExternalLink,
 } from "lucide-react";
 import { useDocumentRecords } from "@/hooks/useDocumentRecords";
 import { Button } from "@/components/ui/button";
@@ -152,11 +153,27 @@ function RecordCard({ record }: { record: DocumentRecord }) {
             value={`${(record.aiAnalysis.confidence * 100).toFixed(1)}%`}
           />
 
-          <div className="pt-2 flex gap-2">
+          <div className="pt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={handleDecrypt}>
               <Unlock className="mr-1.5 h-3.5 w-3.5" />
               Decrypt Access
             </Button>
+            {record.explorerUrl && (
+              <a href={record.explorerUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  NEAR Explorer
+                </Button>
+              </a>
+            )}
+            {record.gatewayUrl && (
+              <a href={record.gatewayUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  IPFS Gateway
+                </Button>
+              </a>
+            )}
           </div>
         </motion.div>
       )}
