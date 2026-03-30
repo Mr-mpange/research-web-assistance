@@ -359,7 +359,7 @@ export default function UploadPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">
                 Processing Complete
-                {result.mode === "testnet" && (
+                {result.mode === "mainnet" && (
                   <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-mono">
                     TESTNET
                   </span>
