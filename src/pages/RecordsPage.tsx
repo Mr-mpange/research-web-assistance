@@ -11,6 +11,7 @@ import {
   Clock,
   Unlock,
   Database,
+  ExternalLink,
 } from "lucide-react";
 import { useDocumentRecords } from "@/hooks/useDocumentRecords";
 import { Button } from "@/components/ui/button";
@@ -108,16 +109,23 @@ function RecordCard({ record }: { record: DocumentRecord }) {
             {new Date(record.createdAt).toLocaleString()}
           </p>
         </div>
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            isAuthentic
-              ? "bg-accent/15 text-accent"
-              : "bg-destructive/15 text-destructive"
-          }`}
-        >
-          {isAuthentic ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-          {isAuthentic ? "Authentic" : "Suspicious"}
-        </span>
+        <div className="flex items-center gap-2">
+          {record.mode === "testnet" && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary">
+              TESTNET
+            </span>
+          )}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              isAuthentic
+                ? "bg-accent/15 text-accent"
+                : "bg-destructive/15 text-destructive"
+            }`}
+          >
+            {isAuthentic ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+            {isAuthentic ? "Authentic" : "Suspicious"}
+          </span>
+        </div>
       </div>
 
       {/* Expanded details */}
@@ -145,11 +153,27 @@ function RecordCard({ record }: { record: DocumentRecord }) {
             value={`${(record.aiAnalysis.confidence * 100).toFixed(1)}%`}
           />
 
-          <div className="pt-2 flex gap-2">
+          <div className="pt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={handleDecrypt}>
               <Unlock className="mr-1.5 h-3.5 w-3.5" />
               Decrypt Access
             </Button>
+            {record.explorerUrl && (
+              <a href={record.explorerUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  NEAR Explorer
+                </Button>
+              </a>
+            )}
+            {record.gatewayUrl && (
+              <a href={record.gatewayUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  IPFS Gateway
+                </Button>
+              </a>
+            )}
           </div>
         </motion.div>
       )}

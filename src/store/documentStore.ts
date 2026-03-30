@@ -19,6 +19,9 @@ export interface DocumentRecord {
   encryption: EncryptionResult;
   aiAnalysis: AIAnalysisResult;
   createdAt: number;
+  mode?: "simulated" | "testnet";
+  explorerUrl?: string;
+  gatewayUrl?: string;
 }
 
 const STORAGE_KEY = "proofdoc-records";

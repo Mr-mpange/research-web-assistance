@@ -12,12 +12,17 @@ import {
   AlertTriangle,
   Loader2,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNetwork } from "@/context/NetworkContext";
 import { computeSHA256 } from "@/services/hashing";
 import { uploadToFilecoin } from "@/services/filecoin";
 import { storeProofOnChain } from "@/services/near";
 import { encryptDocument } from "@/services/lit";
+import { uploadToLighthouse } from "@/services/filecoin-real";
+import { storeProofOnNearTestnet } from "@/services/near-real";
+import { encryptWithLit } from "@/services/lit-real";
 import { analyzeDocument, type AIAnalysisResult } from "@/services/ai";
 import { documentStore, type DocumentRecord } from "@/store/documentStore";
 import { toast } from "sonner";
@@ -26,13 +31,14 @@ type Step = "idle" | "hashing" | "filecoin" | "blockchain" | "encryption" | "ai"
 
 const steps: { key: Step; label: string; icon: React.ElementType }[] = [
   { key: "hashing", label: "Computing Hash", icon: Hash },
-  { key: "filecoin", label: "Uploading to Filecoin", icon: HardDrive },
+  { key: "filecoin", label: "Uploading to IPFS/Filecoin", icon: HardDrive },
   { key: "blockchain", label: "Storing Proof on NEAR", icon: Link2 },
-  { key: "encryption", label: "Encrypting via Lit", icon: Lock },
+  { key: "encryption", label: "Encrypting via Lit Protocol", icon: Lock },
   { key: "ai", label: "AI Analysis", icon: Brain },
 ];
 
 export default function UploadPage() {
+  const { config, isReal } = useNetwork();
   const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [result, setResult] = useState<DocumentRecord | null>(null);
@@ -62,12 +68,23 @@ export default function UploadPage() {
   const processDocument = async () => {
     if (!file) return;
 
+    // Validate testnet requirements
+    if (isReal) {
+      if (!config.lighthouseApiKey) {
+        toast.error("Please configure Lighthouse API key in settings");
+        return;
+      }
+      if (!config.nearAccountId) {
+        toast.error("Please connect your NEAR wallet in settings");
+        return;
+      }
+    }
+
     try {
       // Step 1: Hash
       setStep("hashing");
       const hash = await computeSHA256(file);
 
-      // Check duplicate
       const existing = documentStore.findByHash(hash);
       if (existing) {
         toast.info("This document is already registered!");
@@ -76,18 +93,79 @@ export default function UploadPage() {
         return;
       }
 
-      // Step 2: Filecoin
+      // Step 2: Filecoin/IPFS
       setStep("filecoin");
-      const filecoinResult = await uploadToFilecoin(file);
+      let filecoinResult;
+      if (isReal) {
+        const lhResult = await uploadToLighthouse(file, config.lighthouseApiKey);
+        filecoinResult = {
+          cid: lhResult.cid,
+          size: lhResult.size,
+          timestamp: lhResult.timestamp,
+          network: lhResult.network,
+          gatewayUrl: lhResult.gatewayUrl,
+        };
+      } else {
+        const simResult = await uploadToFilecoin(file);
+        filecoinResult = {
+          cid: simResult.cid,
+          size: simResult.size,
+          timestamp: simResult.timestamp,
+          network: simResult.network,
+        };
+      }
 
       // Step 3: Blockchain
       setStep("blockchain");
-      const blockchainProof = await storeProofOnChain(hash, filecoinResult.cid);
+      let blockchainProof;
+      if (isReal) {
+        const nearResult = await storeProofOnNearTestnet(hash, filecoinResult.cid);
+        blockchainProof = {
+          transactionHash: nearResult.transactionHash,
+          blockHeight: nearResult.blockHeight,
+          timestamp: nearResult.timestamp,
+          contractId: nearResult.contractId,
+          documentHash: nearResult.documentHash,
+          filecoinCid: nearResult.filecoinCid,
+          explorerUrl: nearResult.explorerUrl,
+        };
+      } else {
+        const simResult = await storeProofOnChain(hash, filecoinResult.cid);
+        blockchainProof = {
+          transactionHash: simResult.transactionHash,
+          blockHeight: simResult.blockHeight,
+          timestamp: simResult.timestamp,
+          contractId: simResult.contractId,
+          documentHash: simResult.documentHash,
+          filecoinCid: simResult.filecoinCid,
+        };
+      }
 
       // Step 4: Lit Encryption
       setStep("encryption");
-      const ownerAddress = "0x" + hash.slice(0, 40);
-      const encryptionResult = await encryptDocument(hash, ownerAddress);
+      const ownerAddress = isReal
+        ? config.nearAccountId || "0x" + hash.slice(0, 40)
+        : "0x" + hash.slice(0, 40);
+
+      let encryptionResult;
+      if (isReal) {
+        const litResult = await encryptWithLit(hash, ownerAddress);
+        encryptionResult = {
+          encryptedDataHash: litResult.encryptedDataHash,
+          accessControlConditions: JSON.stringify(litResult.accessControlConditions),
+          owner: litResult.owner,
+          isLocked: litResult.isLocked,
+          network: litResult.network,
+        };
+      } else {
+        const simResult = await encryptDocument(hash, ownerAddress);
+        encryptionResult = {
+          encryptedDataHash: simResult.encryptedDataHash,
+          accessControlConditions: simResult.accessControlConditions,
+          owner: simResult.owner,
+          isLocked: simResult.isLocked,
+        };
+      }
 
       // Step 5: AI Analysis
       setStep("ai");
@@ -100,19 +178,45 @@ export default function UploadPage() {
         fileSize: file.size,
         fileType: file.type,
         hash,
-        filecoin: filecoinResult,
-        blockchain: blockchainProof,
-        encryption: encryptionResult,
+        filecoin: {
+          cid: filecoinResult.cid,
+          size: filecoinResult.size,
+          timestamp: filecoinResult.timestamp,
+          network: filecoinResult.network,
+        },
+        blockchain: {
+          transactionHash: blockchainProof.transactionHash,
+          blockHeight: blockchainProof.blockHeight,
+          timestamp: blockchainProof.timestamp,
+          contractId: blockchainProof.contractId,
+          documentHash: blockchainProof.documentHash,
+          filecoinCid: blockchainProof.filecoinCid,
+        },
+        encryption: {
+          encryptedDataHash: encryptionResult.encryptedDataHash,
+          accessControlConditions: typeof encryptionResult.accessControlConditions === 'string'
+            ? encryptionResult.accessControlConditions
+            : JSON.stringify(encryptionResult.accessControlConditions),
+          owner: encryptionResult.owner,
+          isLocked: encryptionResult.isLocked,
+        },
         aiAnalysis: aiResult,
         createdAt: Date.now(),
+        mode: config.mode,
+        explorerUrl: (blockchainProof as any).explorerUrl,
+        gatewayUrl: (filecoinResult as any).gatewayUrl,
       };
 
       documentStore.add(record);
       setResult(record);
       setStep("done");
-      toast.success("Document processed and stored successfully!");
-    } catch (err) {
-      toast.error("An error occurred during processing");
+      toast.success(
+        isReal
+          ? "Document processed on testnet!"
+          : "Document processed (simulated)!"
+      );
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred during processing");
       setStep("idle");
     }
   };
@@ -131,6 +235,11 @@ export default function UploadPage() {
         <h2 className="text-2xl font-bold text-foreground">Upload Document</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Upload a PDF or image to hash, store, encrypt, and analyze
+          {isReal && (
+            <span className="ml-1 text-primary font-medium">
+              — using real testnet integrations
+            </span>
+          )}
         </p>
       </div>
 
@@ -182,12 +291,8 @@ export default function UploadPage() {
                 <Upload className="h-7 w-7 text-primary" />
               </div>
               <div className="text-center">
-                <p className="font-medium text-foreground">
-                  Drop your document here
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  PDF, PNG, JPG, or WebP
-                </p>
+                <p className="font-medium text-foreground">Drop your document here</p>
+                <p className="text-sm text-muted-foreground">PDF, PNG, JPG, or WebP</p>
               </div>
             </>
           )}
@@ -231,6 +336,9 @@ export default function UploadPage() {
                     }`}
                   >
                     {s.label}
+                    {isActive && isReal && (
+                      <span className="ml-1 text-xs text-primary/60">(testnet)</span>
+                    )}
                   </span>
                 </div>
               );
@@ -251,39 +359,37 @@ export default function UploadPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">
                 Processing Complete
+                {result.mode === "testnet" && (
+                  <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-mono">
+                    TESTNET
+                  </span>
+                )}
               </h3>
               <Button variant="ghost" size="sm" onClick={reset}>
                 <X className="mr-1 h-4 w-4" /> New Upload
               </Button>
             </div>
 
-            <ResultCard
-              icon={Hash}
-              title="SHA-256 Hash"
-              color="primary"
-              value={result.hash}
-              mono
-            />
+            <ResultCard icon={Hash} title="SHA-256 Hash" value={result.hash} mono />
             <ResultCard
               icon={HardDrive}
               title="Filecoin CID"
-              color="primary"
               value={result.filecoin.cid}
               mono
               extra={`Network: ${result.filecoin.network}`}
+              link={result.gatewayUrl}
             />
             <ResultCard
               icon={Link2}
               title="NEAR Proof"
-              color="primary"
               value={result.blockchain.transactionHash}
               mono
               extra={`Block: ${result.blockchain.blockHeight} • Contract: ${result.blockchain.contractId}`}
+              link={result.explorerUrl}
             />
             <ResultCard
               icon={Lock}
               title="Lit Encryption"
-              color="primary"
               value={result.encryption.isLocked ? "🔒 Encrypted & Locked" : "🔓 Unlocked"}
               extra={`Owner: ${result.encryption.owner.slice(0, 10)}...${result.encryption.owner.slice(-8)}`}
             />
@@ -301,28 +407,33 @@ function ResultCard({
   value,
   mono,
   extra,
+  link,
 }: {
   icon: React.ElementType;
   title: string;
-  color: string;
   value: string;
   mono?: boolean;
   extra?: string;
+  link?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium text-muted-foreground">{title}</span>
+        {link && (
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto text-primary hover:text-primary/80"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
       </div>
-      <p
-        className={`text-sm text-foreground break-all ${mono ? "font-mono" : ""}`}
-      >
-        {value}
-      </p>
-      {extra && (
-        <p className="text-xs text-muted-foreground mt-1 font-mono">{extra}</p>
-      )}
+      <p className={`text-sm text-foreground break-all ${mono ? "font-mono" : ""}`}>{value}</p>
+      {extra && <p className="text-xs text-muted-foreground mt-1 font-mono">{extra}</p>}
     </div>
   );
 }
@@ -332,9 +443,7 @@ function AIResultCard({ result }: { result: AIAnalysisResult }) {
   return (
     <div
       className={`rounded-xl border p-4 ${
-        isAuthentic
-          ? "border-accent/30 bg-accent/5"
-          : "border-destructive/30 bg-destructive/5"
+        isAuthentic ? "border-accent/30 bg-accent/5" : "border-destructive/30 bg-destructive/5"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -342,16 +451,10 @@ function AIResultCard({ result }: { result: AIAnalysisResult }) {
         <span className="text-sm font-medium text-muted-foreground">AI Analysis</span>
         <span
           className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            isAuthentic
-              ? "bg-accent/15 text-accent"
-              : "bg-destructive/15 text-destructive"
+            isAuthentic ? "bg-accent/15 text-accent" : "bg-destructive/15 text-destructive"
           }`}
         >
-          {isAuthentic ? (
-            <CheckCircle2 className="h-3 w-3" />
-          ) : (
-            <AlertTriangle className="h-3 w-3" />
-          )}
+          {isAuthentic ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
           {isAuthentic ? "Authentic" : "Suspicious"}
         </span>
       </div>
